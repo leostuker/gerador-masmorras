@@ -769,32 +769,50 @@ async function exportarPdf() {
 	if (!estado.masmorra) {
 		return;
 	}
-	await salvarMasmorraAgora();
-	const quadCm = Number(document.getElementById("input-quad-cm").value) || 2.5;
-	const config = {
-		tamanho_quadrado_mm: quadCm * 10.0,
-		incluir_mapa_geral: document.getElementById("check-mapa-geral").checked,
-		incluir_guia_mestre: document.getElementById("check-guia-mestre").checked,
-	};
+	const btnConfirmar = document.getElementById("btn-confirmar-pdf");
+	const boxStatus = document.getElementById("status-pdf");
+	const txtStatus = document.getElementById("texto-status-pdf");
+
+	btnConfirmar.disabled = true;
+	btnConfirmar.textContent = "Gerando PDF...";
+	txtStatus.textContent = "Gerando PDF em escala, aguarde...";
+	boxStatus.classList.remove("oculto");
 	definirStatus("Gerando PDF...");
-	const resposta = await fetch(`/api/masmorras/${estado.masmorra.id}/exportar-pdf`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify(config),
-	});
-	if (!resposta.ok) {
-		definirStatus("Erro ao gerar PDF");
-		return;
+
+	try {
+		await salvarMasmorraAgora();
+		const quadCm = Number(document.getElementById("input-quad-cm").value) || 2.5;
+		const config = {
+			tamanho_quadrado_mm: quadCm * 10.0,
+			incluir_mapa_geral: document.getElementById("check-mapa-geral").checked,
+			incluir_guia_mestre: document.getElementById("check-guia-mestre").checked,
+		};
+		const resposta = await fetch(`/api/masmorras/${estado.masmorra.id}/exportar-pdf`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(config),
+		});
+		if (!resposta.ok) {
+			definirStatus("Erro ao gerar PDF");
+			txtStatus.textContent = "Não foi possível gerar o PDF. Tente novamente.";
+			return;
+		}
+		const blob = await resposta.blob();
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement("a");
+		link.href = url;
+		link.download = `${estado.masmorra.nome.replace(/[^a-zA-Z0-9_-]+/g, "_") || "masmorra"}.pdf`;
+		link.click();
+		URL.revokeObjectURL(url);
+		document.getElementById("modal-pdf").classList.add("oculto");
+		definirStatus("PDF baixado");
+	} finally {
+		btnConfirmar.disabled = false;
+		btnConfirmar.textContent = "Gerar e Baixar PDF";
+		if (document.getElementById("modal-pdf").classList.contains("oculto")) {
+			boxStatus.classList.add("oculto");
+		}
 	}
-	const blob = await resposta.blob();
-	const url = URL.createObjectURL(blob);
-	const link = document.createElement("a");
-	link.href = url;
-	link.download = `${estado.masmorra.nome.replace(/[^a-zA-Z0-9_-]+/g, "_") || "masmorra"}.pdf`;
-	link.click();
-	URL.revokeObjectURL(url);
-	document.getElementById("modal-pdf").classList.add("oculto");
-	definirStatus("PDF baixado");
 }
 
 function vincularInputsFicha() {
@@ -933,6 +951,7 @@ function configurarEventosInterface() {
 	}
 
 	document.getElementById("btn-abrir-pdf").addEventListener("click", () => {
+		document.getElementById("status-pdf").classList.add("oculto");
 		document.getElementById("modal-pdf").classList.remove("oculto");
 	});
 	document.getElementById("btn-confirmar-pdf").addEventListener("click", exportarPdf);

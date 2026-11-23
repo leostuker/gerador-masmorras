@@ -139,3 +139,46 @@ def test_sigilo_portas_secretas_nas_folhas_jogadores():
 	assert "SECRETA" in texto_guia_mestre
 	assert "C9" in texto_guia_mestre
 	doc_mestre.close()
+
+
+def test_rotulos_sempre_fora_dos_quadrados_nas_folhas_jogadores():
+	saidas_quatro_lados = [
+		Saida(id="S5_O1", x=1, y=0, direcao="N", tipo_porta="corredor", descricao_porta="Passagem", conectada_a="C5", aberta=False),
+		Saida(id="S5_O2", x=0, y=0, direcao="O", tipo_porta="madeira", descricao_porta="Madeira", conectada_a="C11", aberta=False),
+		Saida(id="S5_O3", x=0, y=1, direcao="O", tipo_porta="corredor", descricao_porta="Passagem", conectada_a="S1", aberta=False),
+		Saida(id="S5_O4", x=1, y=1, direcao="S", tipo_porta="madeira", descricao_porta="Madeira", conectada_a="S2", aberta=False),
+		Saida(id="S5_O5", x=1, y=0, direcao="L", tipo_porta="corredor", descricao_porta="Passagem", conectada_a="C8", aberta=False),
+	]
+	pecas = [
+		criar_peca_simples("S5", 2, 2, saidas=saidas_quatro_lados),
+		criar_peca_simples("S1", 2, 2),
+	]
+	masmorra = Masmorra(
+		id="t5",
+		nome="Fora do Grid",
+		tipo_masmorra="geral",
+		peculiaridade="Teste",
+		estado_conservacao="Normal",
+		pecas=pecas,
+	)
+	pdf_bytes = gerar_pdf_masmorra(
+		masmorra,
+		ConfigExportacaoPDF(tamanho_quadrado_mm=25.0, incluir_mapa_geral=False, incluir_guia_mestre=False),
+	)
+	doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
+	assert len(doc) == 1
+	pag = doc[0]
+	retangulos_grade = []
+	for desenho in pag.get_drawings():
+		r = desenho["rect"]
+		if abs(r.width - 25.0 * MM_PARA_PT) < 1.0 and abs(r.height - 25.0 * MM_PARA_PT) < 1.0:
+			retangulos_grade.append(r)
+	assert len(retangulos_grade) == 8
+
+	for x0, y0, x1, y1, palavra, *_ in pag.get_text("words"):
+		cx = (x0 + x1) / 2.0
+		cy = (y0 + y1) / 2.0
+		for rg in retangulos_grade:
+			dentro = rg.x0 + 1.0 < cx < rg.x1 - 1.0 and rg.y0 + 1.0 < cy < rg.y1 - 1.0
+			assert not dentro, f"Texto '{palavra}' invadiu o quadrado da grade"
+	doc.close()

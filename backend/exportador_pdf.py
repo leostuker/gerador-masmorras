@@ -11,7 +11,10 @@ MARGEM_MM = 5.0
 AREA_UTIL_LARG_MM = LARGURA_A4_MM - 2 * MARGEM_MM
 RODAPE_MM = 7.0
 AREA_UTIL_ALT_MM = ALTURA_A4_MM - 2 * MARGEM_MM - RODAPE_MM
-ESPACO_ENTRE_PECAS_MM = 7.5
+ESPACO_ENTRE_PECAS_MM = 5.0
+CABECALHO_BLOCO_MM = 5.0
+FOLGA_ETIQUETA_LAT_MM = 11.5
+FOLGA_ETIQUETA_VERT_MM = 5.0
 
 ROTACIONAR_HORARIO = {"N": "L", "L": "S", "S": "O", "O": "N"}
 
@@ -71,6 +74,32 @@ def normalizar_peca(peca: Peca, rotacionada: bool) -> dict:
 	}
 
 
+def calcular_folgas_externas(info: dict, incluir_cabecalho: bool = True) -> dict[str, float]:
+	lados_com_etiqueta: set[str] = set()
+	for (_, _, ndir), saida in info["saidas"].items():
+		if not saida.secreta and saida.conectada_a:
+			lados_com_etiqueta.add(ndir)
+
+	if incluir_cabecalho:
+		folga_n = 8.5 if "N" in lados_com_etiqueta else CABECALHO_BLOCO_MM
+	else:
+		folga_n = FOLGA_ETIQUETA_VERT_MM if "N" in lados_com_etiqueta else 0.0
+
+	return {
+		"N": folga_n,
+		"S": FOLGA_ETIQUETA_VERT_MM if "S" in lados_com_etiqueta else 0.0,
+		"O": FOLGA_ETIQUETA_LAT_MM if "O" in lados_com_etiqueta else 0.0,
+		"L": FOLGA_ETIQUETA_LAT_MM if "L" in lados_com_etiqueta else 0.0,
+	}
+
+
+def dimensoes_bloco(info: dict, q_mm: float) -> tuple[float, float, dict[str, float]]:
+	folgas = calcular_folgas_externas(info, incluir_cabecalho=True)
+	larg = info["larg_quads"] * q_mm + folgas["O"] + folgas["L"]
+	alt = info["alt_quads"] * q_mm + folgas["N"] + folgas["S"]
+	return larg, alt, folgas
+
+
 def desenhar_celula_peca(
 	pagina: pymupdf.Page,
 	info: dict,
@@ -120,14 +149,14 @@ def desenhar_celula_peca(
 	saidas: dict[tuple[int, int, str], Saida] = info["saidas"]
 
 	bordas = {
-		"N": (0, -1, (px, py), (px + q_mm, py), (0.0, -1.0)),
-		"S": (0, 1, (px, py + q_mm), (px + q_mm, py + q_mm), (0.0, 1.0)),
-		"O": (-1, 0, (px, py), (px, py + q_mm), (-1.0, 0.0)),
-		"L": (1, 0, (px + q_mm, py), (px + q_mm, py + q_mm), (1.0, 0.0)),
+		"N": (0, -1, (px, py), (px + q_mm, py)),
+		"S": (0, 1, (px, py + q_mm), (px + q_mm, py + q_mm)),
+		"O": (-1, 0, (px, py), (px, py + q_mm)),
+		"L": (1, 0, (px + q_mm, py), (px + q_mm, py + q_mm)),
 	}
 
 	larg_parede = 2.0 * escala_traco
-	for direcao, (vx, vy, p1, p2, normal) in bordas.items():
+	for direcao, (vx, vy, p1, p2) in bordas.items():
 		if (gx + vx, gy + vy) in celulas:
 			continue
 
@@ -206,23 +235,27 @@ def desenhar_celula_peca(
 
 		if mostrar_etiquetas_externas and saida.conectada_a:
 			etiqueta = f"-> {saida.conectada_a}"
+			larg_txt_pt = pymupdf.get_text_length(etiqueta, fontname="hebo", fontsize=6.5)
 			cx_e = (x1 + x2) / 2.0
 			cy_e = (y1 + y2) / 2.0
-			nx_v, ny_v = normal
-			ex = cx_e + nx_v * 3.0
-			ey = cy_e + ny_v * 3.0
-			fora_margem = (
-				ex < MARGEM_MM + 1.0
-				or ex > LARGURA_A4_MM - MARGEM_MM - 5.0
-				or ey < MARGEM_MM + 1.5
-				or ey > ALTURA_A4_MM - MARGEM_MM - RODAPE_MM - 1.5
-			)
-			if fora_margem:
-				ex = cx_e - nx_v * min(4.5, q_mm * 0.35)
-				ey = cy_e - ny_v * min(4.5, q_mm * 0.35)
+
+			if direcao == "O":
+				tx_pt = mm_pt(x1 - 1.8) - larg_txt_pt
+				ty_pt = mm_pt(cy_e) + 2.2
+			elif direcao == "L":
+				tx_pt = mm_pt(x1 + 1.8)
+				ty_pt = mm_pt(cy_e) + 2.2
+			elif direcao == "N":
+				tx_pt = mm_pt(cx_e) - larg_txt_pt / 2.0
+				tx_pt = max(mm_pt(MARGEM_MM), min(mm_pt(LARGURA_A4_MM - MARGEM_MM) - larg_txt_pt, tx_pt))
+				ty_pt = mm_pt(y1 - 1.6)
+			else:
+				tx_pt = mm_pt(cx_e) - larg_txt_pt / 2.0
+				tx_pt = max(mm_pt(MARGEM_MM), min(mm_pt(LARGURA_A4_MM - MARGEM_MM) - larg_txt_pt, tx_pt))
+				ty_pt = mm_pt(y1 + 3.8)
 
 			pagina.insert_text(
-				pymupdf.Point(mm_pt(ex) - 8.0, mm_pt(ey) + 2.2),
+				pymupdf.Point(tx_pt, ty_pt),
 				etiqueta,
 				fontsize=6.5,
 				fontname="hebo",
@@ -257,13 +290,23 @@ def desenhar_rotulo_peca(
 	py = y0_mm + (cy - offset_y + 0.5) * q_mm
 	texto = f"{peca.id}{sufixo}"
 	fonte = tamanho_fonte or max(7.0, min(14.0, q_mm * 0.48))
-	larg_estimada = len(texto) * fonte * 0.58
+	larg_estimada = pymupdf.get_text_length(texto, fontname="hebo", fontsize=fonte)
 	pagina.insert_text(
 		pymupdf.Point(mm_pt(px) - larg_estimada / 2.0, mm_pt(py) + fonte * 0.35),
 		texto,
 		fontsize=fonte,
 		fontname="hebo",
 		color=(0.35, 0.35, 0.35),
+	)
+
+
+def desenhar_cabecalho_bloco(pagina: pymupdf.Page, peca: Peca, x_grade_mm: float, y_bloco_mm: float) -> None:
+	pagina.insert_text(
+		pymupdf.Point(mm_pt(x_grade_mm), mm_pt(y_bloco_mm + 3.3)),
+		peca.id,
+		fontsize=8.5,
+		fontname="hebo",
+		color=(0.15, 0.15, 0.15),
 	)
 
 
@@ -275,11 +318,9 @@ def empacotar_pecas_unitarias(pecas_info: list[dict], q_mm: float) -> list[dict]
 	paginas: list[dict] = []
 
 	for info in ordenadas:
-		w0 = info["larg_quads"] * q_mm
-		h0 = info["alt_quads"] * q_mm
+		w0, h0, f0 = dimensoes_bloco(info, q_mm)
 		info_rot = normalizar_peca(info["peca"], not info["rotacionada"])
-		w1 = info_rot["larg_quads"] * q_mm
-		h1 = info_rot["alt_quads"] * q_mm
+		w1, h1, f1 = dimensoes_bloco(info_rot, q_mm)
 
 		colocada = False
 		for pag in paginas:
@@ -290,18 +331,23 @@ def empacotar_pecas_unitarias(pecas_info: list[dict], q_mm: float) -> list[dict]
 				pad0_w = w0 + (ESPACO_ENTRE_PECAS_MM if w0 + ESPACO_ENTRE_PECAS_MM <= rw else 0.0)
 				pad0_h = h0 + (ESPACO_ENTRE_PECAS_MM if h0 + ESPACO_ENTRE_PECAS_MM <= rh else 0.0)
 				if w0 <= rw + 0.01 and h0 <= rh + 0.01:
-					candidatos.append((info, w0, h0, pad0_w, pad0_h))
+					candidatos.append((info, f0, w0, h0, pad0_w, pad0_h))
 
 				pad1_w = w1 + (ESPACO_ENTRE_PECAS_MM if w1 + ESPACO_ENTRE_PECAS_MM <= rw else 0.0)
 				pad1_h = h1 + (ESPACO_ENTRE_PECAS_MM if h1 + ESPACO_ENTRE_PECAS_MM <= rh else 0.0)
 				if w1 <= rw + 0.01 and h1 <= rh + 0.01:
-					candidatos.append((info_rot, w1, h1, pad1_w, pad1_h))
+					candidatos.append((info_rot, f1, w1, h1, pad1_w, pad1_h))
 
 				if not candidatos:
 					continue
 
-				escolhido, bw, bh, pw, ph = min(candidatos, key=lambda c: (c[2], c[1]))
-				pag["itens"].append({"info": escolhido, "x_mm": MARGEM_MM + rx, "y_mm": MARGEM_MM + ry})
+				escolhido, folgas_esc, bw, bh, pw, ph = min(candidatos, key=lambda c: (c[3], c[2]))
+				pag["itens"].append({
+					"info": escolhido,
+					"folgas": folgas_esc,
+					"x_mm": MARGEM_MM + rx,
+					"y_mm": MARGEM_MM + ry,
+				})
 				pag["livres"].pop(indice_ret)
 
 				sobra_dir = rw - pw
@@ -316,9 +362,9 @@ def empacotar_pecas_unitarias(pecas_info: list[dict], q_mm: float) -> list[dict]
 
 		if not colocada:
 			if w0 <= AREA_UTIL_LARG_MM + 0.01 and h0 <= AREA_UTIL_ALT_MM + 0.01:
-				escolhido, bw, bh = info, w0, h0
+				escolhido, folgas_esc, bw, bh = info, f0, w0, h0
 			else:
-				escolhido, bw, bh = info_rot, w1, h1
+				escolhido, folgas_esc, bw, bh = info_rot, f1, w1, h1
 			pw = min(AREA_UTIL_LARG_MM, bw + ESPACO_ENTRE_PECAS_MM)
 			ph = min(AREA_UTIL_ALT_MM, bh + ESPACO_ENTRE_PECAS_MM)
 			livres = []
@@ -327,7 +373,12 @@ def empacotar_pecas_unitarias(pecas_info: list[dict], q_mm: float) -> list[dict]
 			if AREA_UTIL_ALT_MM - ph > 12.0:
 				livres.append((0.0, ph, AREA_UTIL_LARG_MM, AREA_UTIL_ALT_MM - ph))
 			paginas.append({
-				"itens": [{"info": escolhido, "x_mm": MARGEM_MM, "y_mm": MARGEM_MM}],
+				"itens": [{
+					"info": escolhido,
+					"folgas": folgas_esc,
+					"x_mm": MARGEM_MM,
+					"y_mm": MARGEM_MM,
+				}],
 				"livres": livres,
 			})
 
@@ -361,20 +412,34 @@ def desenhar_rodape_pagina(pagina: pymupdf.Page, masmorra: Masmorra, rotulo_peca
 	)
 
 
-def fatiar_peca_grande(peca: Peca, q_mm: float) -> list[dict]:
-	cabecalho_fatia_mm = 8.0
-	alt_disponivel_mm = AREA_UTIL_ALT_MM - cabecalho_fatia_mm
-	max_qx = max(1, int(AREA_UTIL_LARG_MM // q_mm))
-	max_qy = max(1, int(alt_disponivel_mm // q_mm))
+def calcular_grade_fatia(info: dict, q_mm: float) -> tuple[int, int, float, float, float]:
+	folgas = calcular_folgas_externas(info, incluir_cabecalho=False)
+	pad_o = folgas["O"]
+	pad_l = folgas["L"]
+	max_qx_teste = max(1, int((AREA_UTIL_LARG_MM - pad_o - pad_l) // q_mm))
+	if info["larg_quads"] > max_qx_teste:
+		pad_o = max(pad_o, 13.0)
+		pad_l = max(pad_l, 13.0)
 
+	pad_n = max(8.0, 5.5 + folgas["N"])
+	pad_s = max(5.0, folgas["S"])
+	larg_disp = max(q_mm, AREA_UTIL_LARG_MM - pad_o - pad_l)
+	alt_disp = max(q_mm, AREA_UTIL_ALT_MM - pad_n - pad_s)
+	max_qx = max(1, int(larg_disp // q_mm))
+	max_qy = max(1, int(alt_disp // q_mm))
+	return max_qx, max_qy, pad_o, pad_n, pad_s
+
+
+def fatiar_peca_grande(peca: Peca, q_mm: float) -> list[dict]:
 	opcoes = []
 	for rot in (False, True):
 		info = normalizar_peca(peca, rot)
+		max_qx, max_qy, pad_o, pad_n, pad_s = calcular_grade_fatia(info, q_mm)
 		nx = math.ceil(info["larg_quads"] / max_qx)
 		ny = math.ceil(info["alt_quads"] / max_qy)
-		opcoes.append((nx * ny, nx, ny, info))
+		opcoes.append((nx * ny, nx, ny, max_qx, max_qy, pad_o, pad_n, info))
 
-	_, nx, ny, info = min(opcoes, key=lambda o: o[0])
+	_, nx, ny, max_qx, max_qy, pad_o, pad_n, info = min(opcoes, key=lambda o: o[0])
 	fatias: list[dict] = []
 
 	for iy in range(ny):
@@ -399,6 +464,8 @@ def fatiar_peca_grande(peca: Peca, q_mm: float) -> list[dict]:
 				"iy": iy,
 				"nx": nx,
 				"ny": ny,
+				"pad_o": pad_o,
+				"pad_n": pad_n,
 				"celulas_fatia": celulas_fatia,
 			})
 
@@ -412,10 +479,11 @@ def desenhar_fatia_grande(pagina: pymupdf.Page, fatia: dict, indice: int, total_
 	oy = fatia["oy"]
 	fx = fatia["fx"]
 	fy = fatia["fy"]
-	y_grade = MARGEM_MM + 7.5
+	x_grade = MARGEM_MM + fatia["pad_o"]
+	y_grade = MARGEM_MM + fatia["pad_n"]
 
 	pagina.insert_text(
-		pymupdf.Point(mm_pt(MARGEM_MM), mm_pt(MARGEM_MM + 4.5)),
+		pymupdf.Point(mm_pt(MARGEM_MM), mm_pt(MARGEM_MM + 4.0)),
 		f"{peca.id} - Parte {indice}/{total_fatias} (Grade {ox + 1}..{fx} x {oy + 1}..{fy})",
 		fontsize=10.0,
 		fontname="hebo",
@@ -428,7 +496,7 @@ def desenhar_fatia_grande(pagina: pymupdf.Page, fatia: dict, indice: int, total_
 			info,
 			cx,
 			cy,
-			MARGEM_MM,
+			x_grade,
 			y_grade,
 			q_mm,
 			ocultar_secretas=True,
@@ -442,22 +510,24 @@ def desenhar_fatia_grande(pagina: pymupdf.Page, fatia: dict, indice: int, total_
 
 	if fatia["ix"] > 0:
 		pagina.draw_line(
-			pymupdf.Point(mm_pt(MARGEM_MM), mm_pt(y_grade)),
-			pymupdf.Point(mm_pt(MARGEM_MM), mm_pt(y_grade + alt_fatia_mm)),
+			pymupdf.Point(mm_pt(x_grade), mm_pt(y_grade)),
+			pymupdf.Point(mm_pt(x_grade), mm_pt(y_grade + alt_fatia_mm)),
 			color=(0.2, 0.45, 0.8),
 			width=0.9,
 			dashes="[3 3] 0",
 		)
+		txt = f"H{fatia['iy'] + 1}-{fatia['ix']}"
+		larg_t = pymupdf.get_text_length(txt, fontname="hebo", fontsize=6.5)
 		pagina.insert_text(
-			pymupdf.Point(mm_pt(MARGEM_MM + 1.0), mm_pt(y_grade + alt_fatia_mm / 2.0)),
-			f"EMENDA H{fatia['iy'] + 1}-{fatia['ix']}",
+			pymupdf.Point(mm_pt(x_grade - 1.5) - larg_t, mm_pt(y_grade + alt_fatia_mm / 2.0)),
+			txt,
 			fontsize=6.5,
 			fontname="hebo",
 			color=(0.2, 0.45, 0.8),
 		)
 
 	if fatia["ix"] + 1 < fatia["nx"]:
-		x_dir = MARGEM_MM + larg_fatia_mm
+		x_dir = x_grade + larg_fatia_mm
 		pagina.draw_line(
 			pymupdf.Point(mm_pt(x_dir), mm_pt(y_grade)),
 			pymupdf.Point(mm_pt(x_dir), mm_pt(y_grade + alt_fatia_mm)),
@@ -466,8 +536,8 @@ def desenhar_fatia_grande(pagina: pymupdf.Page, fatia: dict, indice: int, total_
 			dashes="[3 3] 0",
 		)
 		pagina.insert_text(
-			pymupdf.Point(mm_pt(x_dir - 20.0), mm_pt(y_grade + alt_fatia_mm / 2.0)),
-			f"EMENDA H{fatia['iy'] + 1}-{fatia['ix'] + 1}",
+			pymupdf.Point(mm_pt(x_dir + 1.5), mm_pt(y_grade + alt_fatia_mm / 2.0)),
+			f"H{fatia['iy'] + 1}-{fatia['ix'] + 1}",
 			fontsize=6.5,
 			fontname="hebo",
 			color=(0.2, 0.45, 0.8),
@@ -475,15 +545,17 @@ def desenhar_fatia_grande(pagina: pymupdf.Page, fatia: dict, indice: int, total_
 
 	if fatia["iy"] > 0:
 		pagina.draw_line(
-			pymupdf.Point(mm_pt(MARGEM_MM), mm_pt(y_grade)),
-			pymupdf.Point(mm_pt(MARGEM_MM + larg_fatia_mm), mm_pt(y_grade)),
+			pymupdf.Point(mm_pt(x_grade), mm_pt(y_grade)),
+			pymupdf.Point(mm_pt(x_grade + larg_fatia_mm), mm_pt(y_grade)),
 			color=(0.2, 0.45, 0.8),
 			width=0.9,
 			dashes="[3 3] 0",
 		)
+		txt = f"EMENDA V{fatia['iy']}-{fatia['ix'] + 1}"
+		larg_t = pymupdf.get_text_length(txt, fontname="hebo", fontsize=6.5)
 		pagina.insert_text(
-			pymupdf.Point(mm_pt(MARGEM_MM + larg_fatia_mm / 2.0 - 12.0), mm_pt(y_grade + 4.0)),
-			f"EMENDA V{fatia['iy']}-{fatia['ix'] + 1}",
+			pymupdf.Point(mm_pt(x_grade + larg_fatia_mm / 2.0) - larg_t / 2.0, mm_pt(y_grade - 1.8)),
+			txt,
 			fontsize=6.5,
 			fontname="hebo",
 			color=(0.2, 0.45, 0.8),
@@ -492,31 +564,21 @@ def desenhar_fatia_grande(pagina: pymupdf.Page, fatia: dict, indice: int, total_
 	if fatia["iy"] + 1 < fatia["ny"]:
 		y_baixo = y_grade + alt_fatia_mm
 		pagina.draw_line(
-			pymupdf.Point(mm_pt(MARGEM_MM), mm_pt(y_baixo)),
-			pymupdf.Point(mm_pt(MARGEM_MM + larg_fatia_mm), mm_pt(y_baixo)),
+			pymupdf.Point(mm_pt(x_grade), mm_pt(y_baixo)),
+			pymupdf.Point(mm_pt(x_grade + larg_fatia_mm), mm_pt(y_baixo)),
 			color=(0.2, 0.45, 0.8),
 			width=0.9,
 			dashes="[3 3] 0",
 		)
+		txt = f"EMENDA V{fatia['iy'] + 1}-{fatia['ix'] + 1}"
+		larg_t = pymupdf.get_text_length(txt, fontname="hebo", fontsize=6.5)
 		pagina.insert_text(
-			pymupdf.Point(mm_pt(MARGEM_MM + larg_fatia_mm / 2.0 - 12.0), mm_pt(y_baixo - 2.0)),
-			f"EMENDA V{fatia['iy'] + 1}-{fatia['ix'] + 1}",
+			pymupdf.Point(mm_pt(x_grade + larg_fatia_mm / 2.0) - larg_t / 2.0, mm_pt(y_baixo + 3.8)),
+			txt,
 			fontsize=6.5,
 			fontname="hebo",
 			color=(0.2, 0.45, 0.8),
 		)
-
-	desenhar_rotulo_peca(
-		pagina,
-		peca,
-		fatia["celulas_fatia"],
-		MARGEM_MM,
-		y_grade,
-		q_mm,
-		offset_x=ox,
-		offset_y=oy,
-		sufixo=f" ({indice}/{total_fatias})",
-	)
 
 
 def desenhar_mapa_geral_mestre(doc: pymupdf.Document, masmorra: Masmorra) -> None:
@@ -698,12 +760,14 @@ def gerar_pdf_masmorra(masmorra: Masmorra, config: ConfigExportacaoPDF) -> bytes
 		if not peca.celulas:
 			continue
 		info0 = normalizar_peca(peca, False)
-		w0 = info0["larg_quads"] * q_mm
-		h0 = info0["alt_quads"] * q_mm
-		cabe_normal = w0 <= AREA_UTIL_LARG_MM + 0.01 and h0 <= AREA_UTIL_ALT_MM + 0.01
-		cabe_rot = h0 <= AREA_UTIL_LARG_MM + 0.01 and w0 <= AREA_UTIL_ALT_MM + 0.01
+		bw0, bh0, _ = dimensoes_bloco(info0, q_mm)
+		info1 = normalizar_peca(peca, True)
+		bw1, bh1, _ = dimensoes_bloco(info1, q_mm)
+
+		cabe_normal = bw0 <= AREA_UTIL_LARG_MM + 0.01 and bh0 <= AREA_UTIL_ALT_MM + 0.01
+		cabe_rot = bw1 <= AREA_UTIL_LARG_MM + 0.01 and bh1 <= AREA_UTIL_ALT_MM + 0.01
 		if cabe_normal or cabe_rot:
-			unitarias.append(info0 if cabe_normal else normalizar_peca(peca, True))
+			unitarias.append(info0 if cabe_normal else info1)
 		else:
 			grandes.append(peca)
 
@@ -722,6 +786,9 @@ def gerar_pdf_masmorra(masmorra: Masmorra, config: ConfigExportacaoPDF) -> bytes
 		for item in pag_data["itens"]:
 			info = item["info"]
 			peca = info["peca"]
+			folgas = item["folgas"]
+			x_grade = item["x_mm"] + folgas["O"]
+			y_grade = item["y_mm"] + folgas["N"]
 			ids_na_pagina.append(peca.id)
 			for cx, cy in sorted(info["celulas"]):
 				desenhar_celula_peca(
@@ -729,13 +796,13 @@ def gerar_pdf_masmorra(masmorra: Masmorra, config: ConfigExportacaoPDF) -> bytes
 					info,
 					cx,
 					cy,
-					item["x_mm"],
-					item["y_mm"],
+					x_grade,
+					y_grade,
 					q_mm,
 					ocultar_secretas=True,
 					mostrar_etiquetas_externas=True,
 				)
-			desenhar_rotulo_peca(pagina, peca, info["celulas"], item["x_mm"], item["y_mm"], q_mm)
+			desenhar_cabecalho_bloco(pagina, peca, x_grade, item["y_mm"])
 		desenhar_rodape_pagina(pagina, masmorra, ", ".join(ids_na_pagina), q_mm, indice_grid, total_paginas_grid)
 
 	for peca, fatias in fatias_grandes:
