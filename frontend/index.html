@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="description" content="Gerador procedural de masmorras D&D com exportação em PDF em escala para impressão.">
+	<title>Gerador de Masmorras</title>
+	<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;700&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+	<header class="topo">
+		<div class="marca">
+			<h1>Gerador de Masmorras</h1>
+			<span id="status-salvamento" class="status-pill">Pronto</span>
+		</div>
+		<div class="acoes-topo">
+			<label class="campo-inline">
+				<span>Tipo</span>
+				<select id="select-tipo-masmorra" aria-label="Tipo de masmorra"></select>
+			</label>
+			<button id="btn-nova" class="btn-primario" type="button" aria-label="Gerar nova masmorra">Nova</button>
+			<div class="grupo-inline">
+				<input id="input-total-salas" type="number" min="2" max="50" value="10" aria-label="Quantidade de salas">
+				<button id="btn-gerar-inteira" class="btn-secundario" type="button" aria-label="Gerar masmorra inteira">Gerar Inteira</button>
+			</div>
+			<button id="btn-salvar" class="btn-secundario" type="button" aria-label="Salvar masmorra">Salvar</button>
+			<button id="btn-carregar" class="btn-secundario" type="button" aria-label="Carregar masmorra">Carregar</button>
+			<button id="btn-abrir-pdf" class="btn-primario" type="button" aria-label="Exportar PDF">Exportar PDF</button>
+		</div>
+	</header>
+
+	<main class="area-trabalho">
+		<section class="painel-mapa">
+			<div class="barra-ferramentas">
+				<div class="ferramentas-esq">
+					<button id="btn-regua" class="btn-ferramenta" type="button" aria-label="Ativar ferramenta régua">Régua</button>
+					<button id="btn-modo-edicao" class="btn-ferramenta" type="button" aria-label="Alternar modo edição">Modo Edição: Desligado</button>
+					<div id="subferramentas-edicao" class="subferramentas oculto">
+						<button data-ferramenta="pintar" class="btn-sub ativo" type="button">Pintar Piso</button>
+						<button data-ferramenta="apagar" class="btn-sub" type="button">Apagar Piso</button>
+						<button data-ferramenta="porta" class="btn-sub" type="button">Alternar Saída</button>
+						<button data-ferramenta="mover" class="btn-sub" type="button">Mover Peça</button>
+					</div>
+				</div>
+				<div class="ferramentas-dir">
+					<span id="info-regua" class="badge-info oculto"></span>
+					<button id="btn-centralizar" class="btn-ferramenta" type="button" aria-label="Centralizar visualização">Centralizar</button>
+				</div>
+			</div>
+
+			<div id="container-svg" class="container-svg">
+				<svg id="mapa-svg" xmlns="http://www.w3.org/2000/svg">
+					<g id="camada-mundo">
+						<g id="camada-grade"></g>
+						<g id="camada-pecas"></g>
+						<g id="camada-saidas"></g>
+						<g id="camada-rotulos"></g>
+						<g id="camada-edicao"></g>
+						<g id="camada-regua"></g>
+					</g>
+				</svg>
+				<div class="legenda-flutuante">
+					<span>Clique nas saídas douradas para gerar a próxima sala</span>
+					<span>|</span>
+					<span>Scroll: zoom | Arrastar fundo: mover mapa</span>
+				</div>
+			</div>
+		</section>
+
+		<aside class="painel-lateral">
+			<article class="card-painel">
+				<h2>Masmorra</h2>
+				<label class="campo-coluna">
+					<span>Nome</span>
+					<input id="input-nome-masmorra" type="text" placeholder="Nome da masmorra">
+				</label>
+				<div class="meta-bloco">
+					<p><strong>Peculiaridade:</strong> <span id="texto-peculiaridade">-</span></p>
+					<p><strong>Conservação:</strong> <span id="texto-conservacao">-</span></p>
+					<p><strong>Peças geradas:</strong> <span id="texto-contagem">-</span></p>
+				</div>
+			</article>
+
+			<article id="card-peca" class="card-painel">
+				<div class="cabecalho-peca">
+					<h2 id="titulo-peca">Selecione uma peça</h2>
+					<span id="badge-tipo-peca" class="badge-tipo"></span>
+				</div>
+
+				<div id="conteudo-peca-vazio" class="aviso-vazio">
+					Clique em qualquer sala (S), corredor (C) ou escada (E) no mapa para inspecionar, re-rolar ou editar suas anotações.
+				</div>
+
+				<div id="conteudo-peca-detalhes" class="oculto">
+					<div class="acoes-peca">
+						<button id="btn-rerolar-tudo" class="btn-primario" type="button">Re-rolar Tudo</button>
+						<button id="btn-rerolar-pov" class="btn-secundario" type="button">Re-rolar Povoamento</button>
+						<button id="btn-rerolar-geo" class="btn-secundario" type="button">Re-rolar Geometria</button>
+						<button id="btn-excluir-peca" class="btn-perigo" type="button">Excluir</button>
+					</div>
+
+					<div id="controles-mover" class="controles-mover oculto">
+						<span>Mover peça no grid:</span>
+						<button data-dx="0" data-dy="-1" class="btn-seta" type="button">↑</button>
+						<button data-dx="-1" data-dy="0" class="btn-seta" type="button">←</button>
+						<button data-dx="1" data-dy="0" class="btn-seta" type="button">→</button>
+						<button data-dx="0" data-dy="1" class="btn-seta" type="button">↓</button>
+					</div>
+
+					<div class="ficha-campos">
+						<p class="geometria-resumo" id="peca-geometria"></p>
+						<label class="campo-coluna">
+							<span>Propósito</span>
+							<input id="campo-proposito" type="text">
+						</label>
+						<label class="campo-coluna">
+							<span>Categoria (DMG 2024)</span>
+							<input id="campo-categoria" type="text">
+						</label>
+						<label class="campo-coluna">
+							<span>Estado Atual</span>
+							<input id="campo-estado" type="text">
+						</label>
+						<label class="campo-coluna">
+							<span>Conteúdo</span>
+							<input id="campo-conteudo" type="text">
+						</label>
+						<label class="campo-coluna">
+							<span>Monstros / Motivação</span>
+							<input id="campo-monstros" type="text">
+						</label>
+						<label class="campo-coluna">
+							<span>Armadilha</span>
+							<input id="campo-armadilha" type="text">
+						</label>
+						<label class="campo-coluna">
+							<span>Perigo</span>
+							<input id="campo-perigo" type="text">
+						</label>
+						<label class="campo-coluna">
+							<span>Obstáculo</span>
+							<input id="campo-obstaculo" type="text">
+						</label>
+						<label class="campo-coluna">
+							<span>Arapuca</span>
+							<input id="campo-arapuca" type="text">
+						</label>
+						<label class="campo-coluna">
+							<span>Tesouro</span>
+							<input id="campo-tesouro" type="text">
+						</label>
+						<label class="campo-coluna">
+							<span>Barulho / Ar</span>
+							<input id="campo-barulho" type="text">
+						</label>
+						<label class="campo-coluna">
+							<span>Odor</span>
+							<input id="campo-odor" type="text">
+						</label>
+						<label class="campo-coluna">
+							<span>Mobília e Características</span>
+							<textarea id="campo-mobilia" rows="2"></textarea>
+						</label>
+						<label class="campo-coluna">
+							<span>Saídas e Conexões</span>
+							<div id="lista-saidas-peca" class="lista-saidas"></div>
+						</label>
+						<label class="campo-coluna">
+							<span>Notas do Mestre</span>
+							<textarea id="campo-notas" rows="3" placeholder="Anotações livres para esta sala..."></textarea>
+						</label>
+					</div>
+				</div>
+			</article>
+		</aside>
+	</main>
+
+	<div id="modal-carregar" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-carregar">
+		<div class="modal-caixa">
+			<div class="modal-topo">
+				<h2 id="titulo-modal-carregar">Carregar ou Importar Masmorra</h2>
+				<button class="btn-fechar-modal" data-fechar="modal-carregar" type="button" aria-label="Fechar">✕</button>
+			</div>
+			<div class="modal-corpo">
+				<div class="acoes-importar">
+					<button id="btn-exportar-json" class="btn-secundario" type="button">Baixar JSON Atual</button>
+					<label class="btn-secundario btn-arquivo">
+						Importar Arquivo JSON
+						<input id="input-importar-json" type="file" accept=".json" hidden>
+					</label>
+				</div>
+				<h3>Masmorras salvas localmente</h3>
+				<div id="lista-masmorras-salvas" class="lista-salvas"></div>
+			</div>
+		</div>
+	</div>
+
+	<div id="modal-pdf" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-pdf">
+		<div class="modal-caixa">
+			<div class="modal-topo">
+				<h2 id="titulo-modal-pdf">Exportar PDF para Impressão (A4)</h2>
+				<button class="btn-fechar-modal" data-fechar="modal-pdf" type="button" aria-label="Fechar">✕</button>
+			</div>
+			<div class="modal-corpo">
+				<label class="campo-coluna">
+					<span>Tamanho de cada quadrado (cm)</span>
+					<input id="input-quad-cm" type="number" step="0.1" min="0.5" max="8.0" value="2.5">
+				</label>
+				<div class="atalhos-escala">
+					<button class="btn-escala" data-cm="1.5" type="button">1,5 cm</button>
+					<button class="btn-escala" data-cm="2.0" type="button">2,0 cm</button>
+					<button class="btn-escala ativo" data-cm="2.5" type="button">2,5 cm (Padrão)</button>
+					<button class="btn-escala" data-cm="3.0" type="button">3,0 cm</button>
+				</div>
+				<label class="checkbox-linha">
+					<input id="check-mapa-geral" type="checkbox" checked>
+					<span>Incluir Mapa Geral do Mestre (revela portas secretas e trancadas)</span>
+				</label>
+				<label class="checkbox-linha">
+					<input id="check-guia-mestre" type="checkbox" checked>
+					<span>Incluir Guia do Mestre com povoamento completo de cada sala</span>
+				</label>
+				<p class="nota-pdf">
+					Folhas A4 com margem de 5 mm (área útil 20 × 28 cm). Salas pequenas são agrupadas na mesma folha; salas gigantes são fatiadas com marcas de emenda. Portas secretas não aparecem nas folhas de grid dos jogadores.
+				</p>
+				<div class="modal-rodape">
+					<button id="btn-confirmar-pdf" class="btn-primario" type="button">Gerar e Baixar PDF</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,198 @@
+{
+	"area_inicial": [
+		{
+			"min": 1,
+			"max": 1,
+			"descricao": "Quadrada, 6 x 6 m; passagem em cada parede",
+			"formato": "quadrada",
+			"largura_quads": 4,
+			"altura_quads": 4,
+			"saidas": ["corredor", "corredor", "corredor", "corredor"],
+			"tipo_peca": "sala"
+		},
+		{
+			"min": 2,
+			"max": 2,
+			"descricao": "Quadrada, 6 x 6 m; porta em duas paredes, passagem na terceira parede",
+			"formato": "quadrada",
+			"largura_quads": 4,
+			"altura_quads": 4,
+			"saidas": ["porta", "porta", "corredor"],
+			"tipo_peca": "sala"
+		},
+		{
+			"min": 3,
+			"max": 3,
+			"descricao": "Quadrada, 12 x 12 m; porta em três paredes",
+			"formato": "quadrada",
+			"largura_quads": 8,
+			"altura_quads": 8,
+			"saidas": ["porta", "porta", "porta"],
+			"tipo_peca": "sala"
+		},
+		{
+			"min": 4,
+			"max": 4,
+			"descricao": "Retangular, 24 x 6 m, com fileiras de colunas no meio; duas passagens levando para cada parede longa, portas em cada parede curta",
+			"formato": "retangular",
+			"largura_quads": 16,
+			"altura_quads": 4,
+			"saidas": ["corredor", "corredor", "corredor", "corredor", "porta", "porta"],
+			"tipo_peca": "sala"
+		},
+		{
+			"min": 5,
+			"max": 5,
+			"descricao": "Retangular, 6 x 12 m; passagem em cada parede",
+			"formato": "retangular",
+			"largura_quads": 4,
+			"altura_quads": 8,
+			"saidas": ["corredor", "corredor", "corredor", "corredor"],
+			"tipo_peca": "sala"
+		},
+		{
+			"min": 6,
+			"max": 6,
+			"descricao": "Circular, 12 m de diâmetro; uma passagem em cada direção cardinal",
+			"formato": "circular",
+			"largura_quads": 8,
+			"altura_quads": 8,
+			"saidas": ["corredor", "corredor", "corredor", "corredor"],
+			"tipo_peca": "sala"
+		},
+		{
+			"min": 7,
+			"max": 7,
+			"descricao": "Circular, 12 m de diâmetro; uma passagem em cada direção cardinal; poço no meio da sala (pode levar para o nível inferior)",
+			"formato": "circular",
+			"largura_quads": 8,
+			"altura_quads": 8,
+			"saidas": ["corredor", "corredor", "corredor", "corredor"],
+			"tipo_peca": "sala"
+		},
+		{
+			"min": 8,
+			"max": 8,
+			"descricao": "Quadrada, 6 x 6 m; porta em duas paredes, passagem na terceira parede, porta secreta na quarta parede",
+			"formato": "quadrada",
+			"largura_quads": 4,
+			"altura_quads": 4,
+			"saidas": ["porta", "porta", "corredor", "porta_secreta"],
+			"tipo_peca": "sala"
+		},
+		{
+			"min": 9,
+			"max": 9,
+			"descricao": "Passagem, 3 m de largura; interseção em T",
+			"formato": "intersecao_t",
+			"largura_quads": 6,
+			"altura_quads": 2,
+			"saidas": ["corredor", "corredor", "corredor"],
+			"tipo_peca": "corredor"
+		},
+		{
+			"min": 10,
+			"max": 10,
+			"descricao": "Passagem, 3 m de largura; interseção de quatro vias",
+			"formato": "cruzamento",
+			"largura_quads": 6,
+			"altura_quads": 6,
+			"saidas": ["corredor", "corredor", "corredor", "corredor"],
+			"tipo_peca": "corredor"
+		}
+	],
+	"passagem": [
+		{"min": 1, "max": 2, "tipo": "reta", "comprimento_quads": 6, "continua_frente": true, "descricao": "Linha reta de 9 m, sem portas ou passagens laterais"},
+		{"min": 3, "max": 3, "tipo": "reta_porta_dir", "comprimento_quads": 6, "continua_frente": true, "ramificacao": {"lado": "dir", "pos_quad": 4, "tipo": "porta"}, "descricao": "Linha reta de 6 m, porta à direita, então 3 m adicionais à frente"},
+		{"min": 4, "max": 4, "tipo": "reta_porta_esq", "comprimento_quads": 6, "continua_frente": true, "ramificacao": {"lado": "esq", "pos_quad": 4, "tipo": "porta"}, "descricao": "Linha reta de 6 m, porta à esquerda, então 3 m adicionais à frente"},
+		{"min": 5, "max": 5, "tipo": "termina_porta", "comprimento_quads": 4, "continua_frente": false, "porta_final": true, "descricao": "Linha reta de 6 m; passagem termina em uma porta"},
+		{"min": 6, "max": 7, "tipo": "bifurcacao_dir", "comprimento_quads": 6, "continua_frente": true, "ramificacao": {"lado": "dir", "pos_quad": 4, "tipo": "corredor"}, "descricao": "Linha reta de 6 m, passagem lateral à direita, então 3 m adicionais à frente"},
+		{"min": 8, "max": 9, "tipo": "bifurcacao_esq", "comprimento_quads": 6, "continua_frente": true, "ramificacao": {"lado": "esq", "pos_quad": 4, "tipo": "corredor"}, "descricao": "Linha reta de 6 m, passagem lateral à esquerda, então 3 m adicionais à frente"},
+		{"min": 10, "max": 10, "tipo": "beco_sem_saida", "comprimento_quads": 4, "continua_frente": false, "chance_secreta": 0.1, "descricao": "Linha reta de 6 m, chega a um beco sem saída (10% de chance de porta secreta)"},
+		{"min": 11, "max": 12, "tipo": "curva_dir", "comprimento_quads": 4, "dobra_quads": 2, "continua_frente": false, "descricao": "Linha reta de 6 m, então a passagem vira à direita e continua por 3 m"},
+		{"min": 13, "max": 14, "tipo": "curva_esq", "comprimento_quads": 4, "dobra_quads": 2, "continua_frente": false, "descricao": "Linha reta de 6 m, então a passagem vira à esquerda e continua por 3 m"},
+		{"min": 15, "max": 19, "tipo": "camara", "comprimento_quads": 0, "continua_frente": false, "descricao": "Câmara (role na tabela Câmara)"},
+		{"min": 20, "max": 20, "tipo": "escada", "comprimento_quads": 0, "continua_frente": false, "descricao": "Escadas (role na tabela Escadas)"}
+	],
+	"largura_passagem": [
+		{"min": 1, "max": 2, "largura_quads": 1, "descricao": "1,5 m"},
+		{"min": 3, "max": 12, "largura_quads": 2, "descricao": "3 m"},
+		{"min": 13, "max": 14, "largura_quads": 4, "descricao": "6 m"},
+		{"min": 15, "max": 16, "largura_quads": 6, "descricao": "9 m"},
+		{"min": 17, "max": 17, "largura_quads": 8, "descricao": "12 m, com fileira de colunas embaixo do meio"},
+		{"min": 18, "max": 18, "largura_quads": 8, "descricao": "12 m, com fileira dupla de colunas"},
+		{"min": 19, "max": 19, "largura_quads": 8, "descricao": "12 m de largura, 6 m de altura"},
+		{"min": 20, "max": 20, "largura_quads": 8, "descricao": "12 m de largura, 6 m de altura, galeria de 3 m acima do solo dá acesso ao nível acima"}
+	],
+	"porta": [
+		{"min": 1, "max": 10, "tipo": "madeira", "trancada": false, "secreta": false, "descricao": "Madeira"},
+		{"min": 11, "max": 12, "tipo": "madeira", "trancada": true, "secreta": false, "descricao": "Madeira, barrada ou trancada"},
+		{"min": 13, "max": 13, "tipo": "pedra", "trancada": false, "secreta": false, "descricao": "Pedra"},
+		{"min": 14, "max": 14, "tipo": "pedra", "trancada": true, "secreta": false, "descricao": "Pedra, barrada ou trancada"},
+		{"min": 15, "max": 15, "tipo": "ferro", "trancada": false, "secreta": false, "descricao": "Ferro"},
+		{"min": 16, "max": 16, "tipo": "ferro", "trancada": true, "secreta": false, "descricao": "Ferro, barrada ou trancada"},
+		{"min": 17, "max": 17, "tipo": "grade", "trancada": false, "secreta": false, "descricao": "Levadiça"},
+		{"min": 18, "max": 18, "tipo": "grade", "trancada": true, "secreta": false, "descricao": "Levadiça, travada no lugar"},
+		{"min": 19, "max": 19, "tipo": "secreta", "trancada": false, "secreta": true, "descricao": "Porta secreta"},
+		{"min": 20, "max": 20, "tipo": "secreta", "trancada": true, "secreta": true, "descricao": "Porta secreta, barrada ou trancada"}
+	],
+	"atras_porta": [
+		{"min": 1, "max": 2, "resultado": "intersecao_t", "descricao": "Passagem se prolonga por 3 m, então uma interseção em T se prolonga por 3 m para a direita e esquerda"},
+		{"min": 3, "max": 8, "resultado": "passagem_reta", "descricao": "Passagem de 6 m em linha reta"},
+		{"min": 9, "max": 18, "resultado": "camara", "descricao": "Câmara (role na tabela Câmara)"},
+		{"min": 19, "max": 19, "resultado": "escada", "descricao": "Escadas (role na tabela Escadas)"},
+		{"min": 20, "max": 20, "resultado": "porta_falsa_armadilha", "descricao": "Porta falsa com armadilha"}
+	],
+	"camara": [
+		{"min": 1, "max": 2, "formato": "quadrada", "largura_quads": 4, "altura_quads": 4, "tamanho": "normal", "descricao": "Quadrada, 6 x 6 m"},
+		{"min": 3, "max": 4, "formato": "quadrada", "largura_quads": 6, "altura_quads": 6, "tamanho": "normal", "descricao": "Quadrada, 9 x 9 m"},
+		{"min": 5, "max": 6, "formato": "quadrada", "largura_quads": 8, "altura_quads": 8, "tamanho": "normal", "descricao": "Quadrada, 12 x 12 m"},
+		{"min": 7, "max": 9, "formato": "retangular", "largura_quads": 4, "altura_quads": 6, "tamanho": "normal", "descricao": "Retangular, 6 x 9 m"},
+		{"min": 10, "max": 12, "formato": "retangular", "largura_quads": 6, "altura_quads": 8, "tamanho": "normal", "descricao": "Retangular, 9 x 12 m"},
+		{"min": 13, "max": 14, "formato": "retangular", "largura_quads": 8, "altura_quads": 10, "tamanho": "grande", "descricao": "Retangular, 12 x 15 m"},
+		{"min": 15, "max": 15, "formato": "retangular", "largura_quads": 10, "altura_quads": 16, "tamanho": "grande", "descricao": "Retangular, 15 x 24 m"},
+		{"min": 16, "max": 16, "formato": "circular", "largura_quads": 6, "altura_quads": 6, "tamanho": "normal", "descricao": "Circular, 9 m de diâmetro"},
+		{"min": 17, "max": 17, "formato": "circular", "largura_quads": 10, "altura_quads": 10, "tamanho": "grande", "descricao": "Circular, 15 m de diâmetro"},
+		{"min": 18, "max": 18, "formato": "octogonal", "largura_quads": 8, "altura_quads": 8, "tamanho": "grande", "descricao": "Octogonal, 12 x 12 m"},
+		{"min": 19, "max": 19, "formato": "octogonal", "largura_quads": 12, "altura_quads": 12, "tamanho": "grande", "descricao": "Octogonal, 18 x 18 m"},
+		{"min": 20, "max": 20, "formato": "trapezoide", "largura_quads": 8, "altura_quads": 12, "tamanho": "grande", "descricao": "Trapezoide, aproximadamente 12 x 18 m"}
+	],
+	"saidas_camara": [
+		{"min": 1, "max": 3, "qtd_normal": 0, "qtd_grande": 0},
+		{"min": 4, "max": 5, "qtd_normal": 0, "qtd_grande": 1},
+		{"min": 6, "max": 8, "qtd_normal": 1, "qtd_grande": 1},
+		{"min": 9, "max": 11, "qtd_normal": 1, "qtd_grande": 2},
+		{"min": 12, "max": 13, "qtd_normal": 2, "qtd_grande": 2},
+		{"min": 14, "max": 15, "qtd_normal": 2, "qtd_grande": 3},
+		{"min": 16, "max": 17, "qtd_normal": 3, "qtd_grande": 3},
+		{"min": 18, "max": 18, "qtd_normal": 3, "qtd_grande": 4},
+		{"min": 19, "max": 19, "qtd_normal": 4, "qtd_grande": 5},
+		{"min": 20, "max": 20, "qtd_normal": 4, "qtd_grande": 6}
+	],
+	"localizacao_saida": [
+		{"min": 1, "max": 7, "lado": "oposta", "descricao": "Parede oposta à entrada"},
+		{"min": 8, "max": 12, "lado": "esquerda", "descricao": "Parede à esquerda da entrada"},
+		{"min": 13, "max": 17, "lado": "direita", "descricao": "Parede à direita da entrada"},
+		{"min": 18, "max": 20, "lado": "mesma", "descricao": "Mesma parede da entrada"}
+	],
+	"tipo_saida": [
+		{"min": 1, "max": 10, "tipo": "porta", "descricao": "Porta (role na tabela Tipo de Porta)"},
+		{"min": 11, "max": 20, "tipo": "corredor", "descricao": "Corredor, 3 m de comprimento"}
+	],
+	"escadas": [
+		{"min": 1, "max": 4, "destino": "camara", "nivel_delta": -1, "descricao": "Desce um nível para uma câmara"},
+		{"min": 5, "max": 8, "destino": "passagem", "nivel_delta": -1, "descricao": "Desce um nível para uma passagem de 6 m de comprimento"},
+		{"min": 9, "max": 9, "destino": "camara", "nivel_delta": -2, "descricao": "Desce dois níveis para uma câmara"},
+		{"min": 10, "max": 10, "destino": "passagem", "nivel_delta": -2, "descricao": "Desce dois níveis para uma passagem de 6 m de comprimento"},
+		{"min": 11, "max": 11, "destino": "camara", "nivel_delta": -3, "descricao": "Desce três níveis para uma câmara"},
+		{"min": 12, "max": 12, "destino": "passagem", "nivel_delta": -3, "descricao": "Desce três níveis para uma passagem de 6 m de comprimento"},
+		{"min": 13, "max": 13, "destino": "camara", "nivel_delta": 1, "descricao": "Sobe um nível para uma câmara"},
+		{"min": 14, "max": 14, "destino": "passagem", "nivel_delta": 1, "descricao": "Sobe um nível para um passagem de 6 m de comprimento"},
+		{"min": 15, "max": 15, "destino": "beco", "nivel_delta": 1, "descricao": "Sobe para um beco sem saída"},
+		{"min": 16, "max": 16, "destino": "beco", "nivel_delta": -1, "descricao": "Desce para um beco sem saída"},
+		{"min": 17, "max": 17, "destino": "passagem", "nivel_delta": 1, "descricao": "Chaminé sobe um nível para uma passagem de 6 m de comprimento"},
+		{"min": 18, "max": 18, "destino": "passagem", "nivel_delta": 2, "descricao": "Chaminé sobe dois níveis para uma passagem de 6 m de comprimento"},
+		{"min": 19, "max": 19, "destino": "camara", "nivel_delta": -1, "descricao": "Fosso (com ou sem elevador) para um nível abaixo em uma câmara"},
+		{"min": 20, "max": 20, "destino": "camara", "nivel_delta": 0, "descricao": "Fosso (com ou sem elevador) para um nível acima em uma câmara e um nível abaixo em uma câmara"}
+	]
+}

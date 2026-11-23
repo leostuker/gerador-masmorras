@@ -1,0 +1,56 @@
+from fastapi.testclient import TestClient
+
+from backend.main import app
+
+
+client = TestClient(app)
+
+
+def test_health_e_pagina_inicial():
+	res_health = client.get("/health")
+	assert res_health.status_code == 200
+	assert res_health.json()["status"] == "ok"
+
+	res_home = client.get("/")
+	assert res_home.status_code == 200
+	assert "Gerador de Masmorras" in res_home.text
+
+
+def test_fluxo_completo_masmorra_e_exportacao_pdf():
+	res_nova = client.post("/api/masmorras/nova", json={"nome": "Teste API", "tipo_masmorra": "covil"})
+	assert res_nova.status_code == 200
+	masmorra = res_nova.json()
+	masmorra_id = masmorra["id"]
+
+	try:
+		peca = masmorra["pecas"][0]
+		saida_id = peca["saidas"][0]["id"]
+		res_exp = client.post(
+			f"/api/masmorras/{masmorra_id}/expandir",
+			json={"peca_id": peca["id"], "saida_id": saida_id},
+		)
+		assert res_exp.status_code == 200
+
+		res_comp = client.post(
+			f"/api/masmorras/{masmorra_id}/gerar-completa",
+			json={"total_salas": 5},
+		)
+		assert res_comp.status_code == 200
+		assert len(res_comp.json()["pecas"]) >= 2
+
+		res_rerol = client.post(
+			f"/api/masmorras/{masmorra_id}/rerolar/{peca['id']}",
+			json={"escopo": "povoamento"},
+		)
+		assert res_rerol.status_code == 200
+
+		res_pdf = client.post(
+			f"/api/masmorras/{masmorra_id}/exportar-pdf",
+			json={"tamanho_quadrado_mm": 25.0, "incluir_mapa_geral": True, "incluir_guia_mestre": True},
+		)
+		assert res_pdf.status_code == 200
+		assert res_pdf.headers["content-type"] == "application/pdf"
+		assert res_pdf.content.startswith(b"%PDF")
+	finally:
+		res_del = client.delete(f"/api/masmorras/{masmorra_id}")
+		assert res_del.status_code == 200
