@@ -1,0 +1,19 @@
+services:
+  api:
+    build: .
+    container_name: gerador_masmorras
+    restart: always
+    stop_grace_period: 15s
+    ports:
+      - "${API_PORT:-8460}:8000"
+    volumes:
+      - masmorras_data:/app/masmorras
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/health\")' || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  masmorras_data:

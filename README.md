@@ -23,6 +23,14 @@ Gerador procedural de masmorras para D&D baseado nas tabelas do **Apêndice A** 
 
 Acesse `http://127.0.0.1:8000` no navegador.
 
+## Como rodar com Docker
+
+```powershell
+docker compose up -d --build
+```
+
+Acesse `http://localhost:8460` no navegador. Para usar outra porta, copie `.env.example` para `.env` e ajuste `API_PORT`.
+
 ## Testes
 
 ```powershell
