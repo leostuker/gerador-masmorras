@@ -590,9 +590,10 @@ def desenhar_mapa_geral_mestre(doc: pymupdf.Document, masmorra: Masmorra) -> Non
 		fontname="hebo",
 		color=(0.1, 0.1, 0.1),
 	)
+	seed_txt = f" | Seed: {masmorra.seed}" if masmorra.seed else ""
 	pagina.insert_text(
 		pymupdf.Point(mm_pt(MARGEM_MM), mm_pt(MARGEM_MM + 10.0)),
-		limpar_texto_pdf(f"Tipo: {masmorra.tipo_masmorra} | Conservação: {masmorra.estado_conservacao[:78]}"),
+		limpar_texto_pdf(f"Tipo: {masmorra.tipo_masmorra}{seed_txt} | Conservação: {masmorra.estado_conservacao[:70]}"),
 		fontsize=7.5,
 		fontname="helv",
 		color=(0.35, 0.35, 0.35),
@@ -696,6 +697,8 @@ def desenhar_guia_mestre(doc: pymupdf.Document, masmorra: Masmorra) -> None:
 			y_atual += altura_linha
 
 	escrever_bloco(f"Guia do Mestre - {masmorra.nome}", fontsize=13.0, fontname="hebo")
+	if masmorra.seed:
+		escrever_bloco(f"Seed: {masmorra.seed}", fontsize=8.5, fontname="hebo")
 	escrever_bloco(f"Peculiaridade: {masmorra.peculiaridade}", fontsize=8.5)
 	escrever_bloco(f"Estado de Conservação: {masmorra.estado_conservacao}", fontsize=8.5)
 	y_atual += 6.0

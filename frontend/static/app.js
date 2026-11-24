@@ -553,6 +553,7 @@ function atualizarPainelLateral() {
 	}
 	document.getElementById("input-nome-masmorra").value = estado.masmorra.nome;
 	document.getElementById("select-tipo-masmorra").value = estado.masmorra.tipo_masmorra;
+	document.getElementById("texto-seed").textContent = estado.masmorra.seed || "-";
 	document.getElementById("texto-peculiaridade").textContent = estado.masmorra.peculiaridade;
 	document.getElementById("texto-conservacao").textContent = estado.masmorra.estado_conservacao;
 
@@ -639,11 +640,12 @@ function agendarSalvamento() {
 
 async function criarNovaMasmorra() {
 	const tipo = document.getElementById("select-tipo-masmorra").value || "geral";
+	const seedDigitada = document.getElementById("input-seed").value.trim() || null;
 	const nome = `Masmorra ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
 	definirStatus("Gerando...");
 	estado.masmorra = await requisicaoJson("/api/masmorras/nova", {
 		method: "POST",
-		body: JSON.stringify({ nome, tipo_masmorra: tipo }),
+		body: JSON.stringify({ nome, tipo_masmorra: tipo, seed: seedDigitada }),
 	});
 	estado.pecaSelecionadaId = estado.masmorra.pecas[0]?.id || null;
 	renderizarMapa();
@@ -732,7 +734,8 @@ async function abrirModalCarregar() {
 		const linha = document.createElement("div");
 		linha.className = "item-salvo";
 		const info = document.createElement("div");
-		info.textContent = `${item.nome} (${item.qtd_pecas} peças)`;
+		const sufixoSeed = item.seed ? ` | Seed: ${item.seed}` : "";
+		info.textContent = `${item.nome} (${item.qtd_pecas} peças${sufixoSeed})`;
 		const acoes = document.createElement("div");
 		acoes.className = "item-salvo-acoes";
 
@@ -907,6 +910,18 @@ function configurarEventosInterface() {
 	document.getElementById("btn-salvar").addEventListener("click", salvarMasmorraAgora);
 	document.getElementById("btn-carregar").addEventListener("click", abrirModalCarregar);
 	document.getElementById("btn-centralizar").addEventListener("click", centralizarMapa);
+	document.getElementById("btn-copiar-seed").addEventListener("click", async (ev) => {
+		const seedAtual = estado.masmorra?.seed;
+		if (!seedAtual) {
+			return;
+		}
+		const btn = ev.currentTarget;
+		await navigator.clipboard.writeText(seedAtual);
+		btn.textContent = "Copiada!";
+		setTimeout(() => {
+			btn.textContent = "Copiar";
+		}, 1500);
+	});
 
 	document.getElementById("btn-rerolar-tudo").addEventListener("click", () => rerolarPecaSelecionada("tudo"));
 	document.getElementById("btn-rerolar-pov").addEventListener("click", () => rerolarPecaSelecionada("povoamento"));

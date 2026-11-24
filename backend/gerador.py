@@ -1,6 +1,7 @@
+import hashlib
 import json
-import math
 import random
+import secrets
 import uuid
 from pathlib import Path
 
@@ -50,8 +51,31 @@ TABELAS_POVOAMENTO = carregar_json("tabelas_povoamento.json")
 TABELAS_AMBIENTACAO = carregar_json("tabelas_ambientacao.json")
 
 
-def rolar_tabela(entradas: list[dict], lados: int) -> dict:
-	valor = random.randint(1, lados)
+def gerar_seed_aleatoria() -> str:
+	return secrets.token_hex(4).upper()
+
+
+def normalizar_seed(seed: str | None) -> str:
+	if seed is not None:
+		limpa = seed.strip()
+		if limpa:
+			return limpa
+	return gerar_seed_aleatoria()
+
+
+def criar_rng(seed: str, contexto: str) -> random.Random:
+	digest = hashlib.sha256(f"{seed}|{contexto}".encode("utf-8")).digest()
+	return random.Random(int.from_bytes(digest, "big"))
+
+
+def obter_seed_efetiva(masmorra: Masmorra) -> str:
+	if not masmorra.seed:
+		masmorra.seed = masmorra.id.upper()
+	return masmorra.seed
+
+
+def rolar_tabela(entradas: list[dict], lados: int, rng: random.Random) -> dict:
+	valor = rng.randint(1, lados)
 	for entrada in entradas:
 		if entrada["min"] <= valor <= entrada["max"]:
 			return entrada
@@ -156,7 +180,7 @@ def associar_categoria_2024(proposito: str) -> str:
 	return "Alojamentos"
 
 
-def sortear_detalhes_porta(forcada_secreta: bool = False, forcada_normal: bool = False) -> dict:
+def sortear_detalhes_porta(rng: random.Random, forcada_secreta: bool = False, forcada_normal: bool = False) -> dict:
 	if forcada_secreta:
 		return {
 			"tipo_porta": "secreta",
@@ -165,9 +189,9 @@ def sortear_detalhes_porta(forcada_secreta: bool = False, forcada_normal: bool =
 			"trancada": False,
 		}
 	if forcada_normal:
-		entrada = rolar_tabela(TABELAS_GEOMETRIA["porta"], 18)
+		entrada = rolar_tabela(TABELAS_GEOMETRIA["porta"], 18, rng)
 	else:
-		entrada = rolar_tabela(TABELAS_GEOMETRIA["porta"], 20)
+		entrada = rolar_tabela(TABELAS_GEOMETRIA["porta"], 20, rng)
 	return {
 		"tipo_porta": entrada["tipo"],
 		"descricao_porta": entrada["descricao"],
@@ -176,31 +200,31 @@ def sortear_detalhes_porta(forcada_secreta: bool = False, forcada_normal: bool =
 	}
 
 
-def povoar_peca(tipo_masmorra: str, tipo_peca: str, proposito_forcado: str | None = None, notas_existentes: str = "") -> Povoamento:
+def povoar_peca(tipo_masmorra: str, tipo_peca: str, rng: random.Random, proposito_forcado: str | None = None, notas_existentes: str = "") -> Povoamento:
 	if tipo_peca == "corredor":
-		estado = rolar_tabela(TABELAS_PROPOSITO["estado_atual_camara"], 20)["descricao"]
-		barulho = rolar_tabela(TABELAS_AMBIENTACAO["barulhos"], 100)["descricao"]
-		odor = rolar_tabela(TABELAS_AMBIENTACAO["odores"], 100)["descricao"]
-		caract = rolar_tabela(TABELAS_AMBIENTACAO["caracteristicas_gerais"], 100)["descricao"]
-		tem_algo = random.random() < 0.3
+		estado = rolar_tabela(TABELAS_PROPOSITO["estado_atual_camara"], 20, rng)["descricao"]
+		barulho = rolar_tabela(TABELAS_AMBIENTACAO["barulhos"], 100, rng)["descricao"]
+		odor = rolar_tabela(TABELAS_AMBIENTACAO["odores"], 100, rng)["descricao"]
+		caract = rolar_tabela(TABELAS_AMBIENTACAO["caracteristicas_gerais"], 100, rng)["descricao"]
+		tem_algo = rng.random() < 0.3
 		conteudo = "Passagem livre"
 		perigo = ""
 		armadilha = ""
 		monstros_motivacao = ""
 		if tem_algo:
-			rolagem = random.randint(1, 3)
+			rolagem = rng.randint(1, 3)
 			if rolagem == 1:
 				conteudo = "Armadilha no corredor"
-				gatilho = rolar_tabela(TABELAS_POVOAMENTO["armadilha_gatilho"], 6)["descricao"]
-				gravidade = rolar_tabela(TABELAS_POVOAMENTO["armadilha_gravidade"], 6)["descricao"]
-				efeito = rolar_tabela(TABELAS_POVOAMENTO["armadilha_efeito"], 100)["descricao"]
+				gatilho = rolar_tabela(TABELAS_POVOAMENTO["armadilha_gatilho"], 6, rng)["descricao"]
+				gravidade = rolar_tabela(TABELAS_POVOAMENTO["armadilha_gravidade"], 6, rng)["descricao"]
+				efeito = rolar_tabela(TABELAS_POVOAMENTO["armadilha_efeito"], 100, rng)["descricao"]
 				armadilha = f"{gravidade} — Gatilho: {gatilho}. Efeito: {efeito}"
 			elif rolagem == 2:
 				conteudo = "Perigo na passagem"
-				perigo = rolar_tabela(TABELAS_POVOAMENTO["perigos"], 20)["descricao"]
+				perigo = rolar_tabela(TABELAS_POVOAMENTO["perigos"], 20, rng)["descricao"]
 			else:
 				conteudo = "Patrulha ou criatura errante"
-				monstros_motivacao = rolar_tabela(TABELAS_POVOAMENTO["motivacao_monstro"], 20)["descricao"]
+				monstros_motivacao = rolar_tabela(TABELAS_POVOAMENTO["motivacao_monstro"], 20, rng)["descricao"]
 
 		return Povoamento(
 			proposito=proposito_forcado or "Corredor de ligação",
@@ -220,17 +244,17 @@ def povoar_peca(tipo_masmorra: str, tipo_peca: str, proposito_forcado: str | Non
 		tipo_masmorra,
 		TABELAS_PROPOSITO["tipos_masmorra"]["geral"],
 	)
-	proposito = proposito_forcado or rolar_tabela(tabela_tipo["propositos"], tabela_tipo["dado"])["descricao"]
+	proposito = proposito_forcado or rolar_tabela(tabela_tipo["propositos"], tabela_tipo["dado"], rng)["descricao"]
 	categoria_2024 = associar_categoria_2024(proposito)
 
-	estado_entrada = rolar_tabela(TABELAS_PROPOSITO["estado_atual_camara"], 20)
+	estado_entrada = rolar_tabela(TABELAS_PROPOSITO["estado_atual_camara"], 20, rng)
 	estado_atual = estado_entrada["descricao"]
 	if estado_entrada["min"] == 17:
 		tabela_geral = TABELAS_PROPOSITO["tipos_masmorra"]["geral"]
-		novo_uso = rolar_tabela(tabela_geral["propositos"], tabela_geral["dado"])["descricao"]
+		novo_uso = rolar_tabela(tabela_geral["propositos"], tabela_geral["dado"], rng)["descricao"]
 		estado_atual = f"Convertida para outro uso: {novo_uso}"
 
-	cont = rolar_tabela(TABELAS_POVOAMENTO["conteudo_camara"], 100)
+	cont = rolar_tabela(TABELAS_POVOAMENTO["conteudo_camara"], 100, rng)
 	monstros_motivacao = ""
 	perigo = ""
 	obstaculo = ""
@@ -239,36 +263,36 @@ def povoar_peca(tipo_masmorra: str, tipo_peca: str, proposito_forcado: str | Non
 	tesouro = ""
 
 	if cont["tem_monstro"]:
-		monstros_motivacao = rolar_tabela(TABELAS_POVOAMENTO["motivacao_monstro"], 20)["descricao"]
+		monstros_motivacao = rolar_tabela(TABELAS_POVOAMENTO["motivacao_monstro"], 20, rng)["descricao"]
 	if cont["tem_perigo"]:
-		perigo = rolar_tabela(TABELAS_POVOAMENTO["perigos"], 20)["descricao"]
+		perigo = rolar_tabela(TABELAS_POVOAMENTO["perigos"], 20, rng)["descricao"]
 	if cont["tem_obstaculo"]:
-		obstaculo = rolar_tabela(TABELAS_POVOAMENTO["obstaculos"], 20)["descricao"]
+		obstaculo = rolar_tabela(TABELAS_POVOAMENTO["obstaculos"], 20, rng)["descricao"]
 	if cont["tem_armadilha"]:
-		gatilho = rolar_tabela(TABELAS_POVOAMENTO["armadilha_gatilho"], 6)["descricao"]
-		gravidade = rolar_tabela(TABELAS_POVOAMENTO["armadilha_gravidade"], 6)["descricao"]
-		efeito = rolar_tabela(TABELAS_POVOAMENTO["armadilha_efeito"], 100)["descricao"]
+		gatilho = rolar_tabela(TABELAS_POVOAMENTO["armadilha_gatilho"], 6, rng)["descricao"]
+		gravidade = rolar_tabela(TABELAS_POVOAMENTO["armadilha_gravidade"], 6, rng)["descricao"]
+		efeito = rolar_tabela(TABELAS_POVOAMENTO["armadilha_efeito"], 100, rng)["descricao"]
 		armadilha = f"{gravidade} — Gatilho: {gatilho}. Efeito: {efeito}"
 	if cont["tem_arapuca"]:
-		obj = rolar_tabela(TABELAS_POVOAMENTO["arapuca_objeto"], 20)["descricao"]
-		ef = rolar_tabela(TABELAS_POVOAMENTO["arapuca_efeito"], 100)["descricao"]
+		obj = rolar_tabela(TABELAS_POVOAMENTO["arapuca_objeto"], 20, rng)["descricao"]
+		ef = rolar_tabela(TABELAS_POVOAMENTO["arapuca_efeito"], 100, rng)["descricao"]
 		arapuca = f"{obj}: {ef}"
 	if cont["tem_tesouro"]:
-		tesouro = rolar_tabela(TABELAS_POVOAMENTO["tesouros_sugestao"], 100)["descricao"]
+		tesouro = rolar_tabela(TABELAS_POVOAMENTO["tesouros_sugestao"], 100, rng)["descricao"]
 
-	barulho = rolar_tabela(TABELAS_AMBIENTACAO["barulhos"], 100)["descricao"]
-	odor = rolar_tabela(TABELAS_AMBIENTACAO["odores"], 100)["descricao"]
-	ar = rolar_tabela(TABELAS_AMBIENTACAO["ar"], 100)["descricao"]
+	barulho = rolar_tabela(TABELAS_AMBIENTACAO["barulhos"], 100, rng)["descricao"]
+	odor = rolar_tabela(TABELAS_AMBIENTACAO["odores"], 100, rng)["descricao"]
+	ar = rolar_tabela(TABELAS_AMBIENTACAO["ar"], 100, rng)["descricao"]
 
-	itens_mobilia = [rolar_tabela(TABELAS_AMBIENTACAO["caracteristicas_gerais"], 100)["descricao"]]
+	itens_mobilia = [rolar_tabela(TABELAS_AMBIENTACAO["caracteristicas_gerais"], 100, rng)["descricao"]]
 	if categoria_2024 == "Santuários":
-		itens_mobilia.append(rolar_tabela(TABELAS_AMBIENTACAO["mobilias_religiosas"], 100)["descricao"])
+		itens_mobilia.append(rolar_tabela(TABELAS_AMBIENTACAO["mobilias_religiosas"], 100, rng)["descricao"])
 	elif categoria_2024 == "Áreas de Trabalho":
-		itens_mobilia.append(rolar_tabela(TABELAS_AMBIENTACAO["mobilias_arcanas"], 100)["descricao"])
-		itens_mobilia.append(rolar_tabela(TABELAS_AMBIENTACAO["livros_pergaminhos"], 100)["descricao"])
+		itens_mobilia.append(rolar_tabela(TABELAS_AMBIENTACAO["mobilias_arcanas"], 100, rng)["descricao"])
+		itens_mobilia.append(rolar_tabela(TABELAS_AMBIENTACAO["livros_pergaminhos"], 100, rng)["descricao"])
 	else:
-		itens_mobilia.append(rolar_tabela(TABELAS_AMBIENTACAO["mobilias_gerais"], 100)["descricao"])
-		itens_mobilia.append(rolar_tabela(TABELAS_AMBIENTACAO["utensilios"], 100)["descricao"])
+		itens_mobilia.append(rolar_tabela(TABELAS_AMBIENTACAO["mobilias_gerais"], 100, rng)["descricao"])
+		itens_mobilia.append(rolar_tabela(TABELAS_AMBIENTACAO["utensilios"], 100, rng)["descricao"])
 
 	return Povoamento(
 		proposito=proposito,
@@ -319,7 +343,7 @@ def escolher_celula_borda(celulas: list[Celula], direcao: str, saidas_existentes
 	return pool[meio]
 
 
-def criar_saida_em_borda(peca_id: str, saidas_existentes: list[Saida], x: int, y: int, direcao: str, tipo_especifico: str) -> Saida:
+def criar_saida_em_borda(peca_id: str, saidas_existentes: list[Saida], x: int, y: int, direcao: str, tipo_especifico: str, rng: random.Random) -> Saida:
 	saida_id = gerar_id_saida(peca_id, saidas_existentes)
 	if tipo_especifico == "corredor":
 		return Saida(
@@ -334,9 +358,9 @@ def criar_saida_em_borda(peca_id: str, saidas_existentes: list[Saida], x: int, y
 			aberta=True,
 		)
 	if tipo_especifico == "porta_secreta":
-		detalhes = sortear_detalhes_porta(forcada_secreta=True)
+		detalhes = sortear_detalhes_porta(rng, forcada_secreta=True)
 	else:
-		detalhes = sortear_detalhes_porta()
+		detalhes = sortear_detalhes_porta(rng)
 	return Saida(
 		id=saida_id,
 		x=x,
@@ -350,8 +374,8 @@ def criar_saida_em_borda(peca_id: str, saidas_existentes: list[Saida], x: int, y
 	)
 
 
-def construir_area_inicial(peca_id: str, tipo_masmorra: str) -> Peca:
-	area = rolar_tabela(TABELAS_GEOMETRIA["area_inicial"], 10)
+def construir_area_inicial(peca_id: str, tipo_masmorra: str, rng: random.Random) -> Peca:
+	area = rolar_tabela(TABELAS_GEOMETRIA["area_inicial"], 10, rng)
 	larg = area["largura_quads"]
 	alt = area["altura_quads"]
 	formato = area["formato"]
@@ -378,9 +402,9 @@ def construir_area_inicial(peca_id: str, tipo_masmorra: str) -> Peca:
 		direcao = direcoes_base[indice % 4]
 		pos = escolher_celula_borda(celulas, direcao, saidas, {})
 		if pos is not None:
-			saidas.append(criar_saida_em_borda(peca_id, saidas, pos[0], pos[1], direcao, tipo_saida))
+			saidas.append(criar_saida_em_borda(peca_id, saidas, pos[0], pos[1], direcao, tipo_saida, rng))
 
-	povoamento = povoar_peca(tipo_masmorra, tipo_peca, proposito_forcado="Área Inicial da Masmorra")
+	povoamento = povoar_peca(tipo_masmorra, tipo_peca, rng, proposito_forcado="Área Inicial da Masmorra")
 	return Peca(
 		id=peca_id,
 		tipo=tipo_peca,
@@ -392,11 +416,13 @@ def construir_area_inicial(peca_id: str, tipo_masmorra: str) -> Peca:
 	)
 
 
-def criar_masmorra(nome: str, tipo_masmorra: str) -> Masmorra:
-	peculiaridade = rolar_tabela(TABELAS_PROPOSITO["peculiaridades_masmorra"], 100)["descricao"]
-	conservacao = rolar_tabela(TABELAS_PROPOSITO["estado_conservacao"], 6)["descricao"]
+def criar_masmorra(nome: str, tipo_masmorra: str, seed: str | None = None) -> Masmorra:
+	seed_final = normalizar_seed(seed)
+	rng = criar_rng(seed_final, f"inicio:{tipo_masmorra}")
+	peculiaridade = rolar_tabela(TABELAS_PROPOSITO["peculiaridades_masmorra"], 100, rng)["descricao"]
+	conservacao = rolar_tabela(TABELAS_PROPOSITO["estado_conservacao"], 6, rng)["descricao"]
 	masmorra_id = uuid.uuid4().hex[:10]
-	peca_inicial = construir_area_inicial("S1", tipo_masmorra)
+	peca_inicial = construir_area_inicial("S1", tipo_masmorra, rng)
 	if peca_inicial.tipo == "corredor":
 		peca_inicial.id = "C1"
 		for s in peca_inicial.saidas:
@@ -406,6 +432,8 @@ def criar_masmorra(nome: str, tipo_masmorra: str) -> Masmorra:
 		id=masmorra_id,
 		nome=nome.strip() or "Masmorra Sem Nome",
 		tipo_masmorra=tipo_masmorra,
+		seed=seed_final,
+		passo_rng=0,
 		peculiaridade=peculiaridade,
 		estado_conservacao=conservacao,
 		pecas=[peca_inicial],
@@ -461,13 +489,14 @@ def construir_camara_conectada(
 	entrada_x: int,
 	entrada_y: int,
 	ocupadas: dict[tuple[int, int], str],
+	rng: random.Random,
 	peca_id_forcado: str | None = None,
 	notas_existentes: str = "",
 ) -> Peca | None:
-	camara_def = rolar_tabela(TABELAS_GEOMETRIA["camara"], 20)
+	camara_def = rolar_tabela(TABELAS_GEOMETRIA["camara"], 20, rng)
 	larg = camara_def["largura_quads"]
 	alt = camara_def["altura_quads"]
-	if saida_origem.direcao in ("L", "O") and random.random() < 0.5:
+	if saida_origem.direcao in ("L", "O") and rng.random() < 0.5:
 		larg, alt = alt, larg
 
 	celulas = encaixar_camara_no_grid(
@@ -498,7 +527,7 @@ def construir_camara_conectada(
 	)
 	saidas = [saida_retorno]
 
-	qtd_def = rolar_tabela(TABELAS_GEOMETRIA["saidas_camara"], 20)
+	qtd_def = rolar_tabela(TABELAS_GEOMETRIA["saidas_camara"], 20, rng)
 	qtd_saidas = qtd_def["qtd_grande"] if camara_def["tamanho"] == "grande" else qtd_def["qtd_normal"]
 	ocupadas_pos = dict(ocupadas)
 	for c in celulas:
@@ -512,15 +541,15 @@ def construir_camara_conectada(
 	}
 
 	for _ in range(qtd_saidas):
-		loc = rolar_tabela(TABELAS_GEOMETRIA["localizacao_saida"], 20)["lado"]
+		loc = rolar_tabela(TABELAS_GEOMETRIA["localizacao_saida"], 20, rng)["lado"]
 		dir_saida = mapa_lados[loc]
 		pos = escolher_celula_borda(celulas, dir_saida, saidas, ocupadas_pos)
 		if pos is None:
 			continue
-		tipo_s = rolar_tabela(TABELAS_GEOMETRIA["tipo_saida"], 20)["tipo"]
-		saidas.append(criar_saida_em_borda(nova_id, saidas, pos[0], pos[1], dir_saida, tipo_s))
+		tipo_s = rolar_tabela(TABELAS_GEOMETRIA["tipo_saida"], 20, rng)["tipo"]
+		saidas.append(criar_saida_em_borda(nova_id, saidas, pos[0], pos[1], dir_saida, tipo_s, rng))
 
-	povoamento = povoar_peca(masmorra.tipo_masmorra, "sala", notas_existentes=notas_existentes)
+	povoamento = povoar_peca(masmorra.tipo_masmorra, "sala", rng, notas_existentes=notas_existentes)
 	return Peca(
 		id=nova_id,
 		tipo="sala",
@@ -572,12 +601,13 @@ def construir_corredor_conectado(
 	entrada_x: int,
 	entrada_y: int,
 	ocupadas: dict[tuple[int, int], str],
+	rng: random.Random,
 	detalhe_forcado: dict | None = None,
 	peca_id_forcado: str | None = None,
 	notas_existentes: str = "",
 ) -> Peca | None:
-	passagem_def = detalhe_forcado or rolar_tabela(TABELAS_GEOMETRIA["passagem"], 20)
-	larg_def = rolar_tabela(TABELAS_GEOMETRIA["largura_passagem"], 12)
+	passagem_def = detalhe_forcado or rolar_tabela(TABELAS_GEOMETRIA["passagem"], 20, rng)
+	larg_def = rolar_tabela(TABELAS_GEOMETRIA["largura_passagem"], 12, rng)
 	largura = min(2, larg_def["largura_quads"])
 	tipo_pass = passagem_def["tipo"]
 	comprimento = max(2, passagem_def.get("comprimento_quads", 4))
@@ -642,9 +672,9 @@ def construir_corredor_conectado(
 		)
 		if cel_dobra and ponta_dobra is not None:
 			celulas.extend(cel_dobra)
-			saidas.append(criar_saida_em_borda(nova_id, saidas, ponta_dobra[0], ponta_dobra[1], dir_dobra, "corredor"))
+			saidas.append(criar_saida_em_borda(nova_id, saidas, ponta_dobra[0], ponta_dobra[1], dir_dobra, "corredor", rng))
 		else:
-			saidas.append(criar_saida_em_borda(nova_id, saidas, ponta[0], ponta[1], dir_avanco, "corredor"))
+			saidas.append(criar_saida_em_borda(nova_id, saidas, ponta[0], ponta[1], dir_avanco, "corredor", rng))
 	elif tipo_pass == "intersecao_t":
 		for dir_lado in (VIRAR_ESQUERDA[dir_avanco], VIRAR_DIREITA[dir_avanco]):
 			dx_l, dy_l = VETORES_DIRECAO[dir_lado]
@@ -660,21 +690,21 @@ def construir_corredor_conectado(
 				celulas.extend(cel_l)
 				for c in cel_l:
 					ocupadas_com_corredor[(c.x, c.y)] = nova_id
-				saidas.append(criar_saida_em_borda(nova_id, saidas, ponta_l[0], ponta_l[1], dir_lado, "corredor"))
+				saidas.append(criar_saida_em_borda(nova_id, saidas, ponta_l[0], ponta_l[1], dir_lado, "corredor", rng))
 	else:
 		ram = passagem_def.get("ramificacao")
 		if ram:
 			dir_ram = VIRAR_DIREITA[dir_avanco] if ram["lado"] == "dir" else VIRAR_ESQUERDA[dir_avanco]
 			pos_ram = escolher_celula_borda(celulas, dir_ram, saidas, ocupadas_com_corredor)
 			if pos_ram is not None:
-				saidas.append(criar_saida_em_borda(nova_id, saidas, pos_ram[0], pos_ram[1], dir_ram, ram["tipo"]))
+				saidas.append(criar_saida_em_borda(nova_id, saidas, pos_ram[0], pos_ram[1], dir_ram, ram["tipo"], rng))
 
 		if passagem_def.get("continua_frente", False) and colisao_id is None:
-			saidas.append(criar_saida_em_borda(nova_id, saidas, ponta[0], ponta[1], dir_avanco, "corredor"))
+			saidas.append(criar_saida_em_borda(nova_id, saidas, ponta[0], ponta[1], dir_avanco, "corredor", rng))
 		elif passagem_def.get("porta_final", False) and colisao_id is None:
-			saidas.append(criar_saida_em_borda(nova_id, saidas, ponta[0], ponta[1], dir_avanco, "porta"))
-		elif tipo_pass == "beco_sem_saida" and random.random() < passagem_def.get("chance_secreta", 0.0):
-			saidas.append(criar_saida_em_borda(nova_id, saidas, ponta[0], ponta[1], dir_avanco, "porta_secreta"))
+			saidas.append(criar_saida_em_borda(nova_id, saidas, ponta[0], ponta[1], dir_avanco, "porta", rng))
+		elif tipo_pass == "beco_sem_saida" and rng.random() < passagem_def.get("chance_secreta", 0.0):
+			saidas.append(criar_saida_em_borda(nova_id, saidas, ponta[0], ponta[1], dir_avanco, "porta_secreta", rng))
 
 	celulas_unicas: list[Celula] = []
 	vistos: set[tuple[int, int]] = set()
@@ -683,7 +713,7 @@ def construir_corredor_conectado(
 			vistos.add((c.x, c.y))
 			celulas_unicas.append(c)
 
-	povoamento = povoar_peca(masmorra.tipo_masmorra, "corredor", notas_existentes=notas_existentes)
+	povoamento = povoar_peca(masmorra.tipo_masmorra, "corredor", rng, notas_existentes=notas_existentes)
 	return Peca(
 		id=nova_id,
 		tipo="corredor",
@@ -702,10 +732,11 @@ def construir_escada_conectada(
 	entrada_x: int,
 	entrada_y: int,
 	ocupadas: dict[tuple[int, int], str],
+	rng: random.Random,
 	peca_id_forcado: str | None = None,
 	notas_existentes: str = "",
 ) -> Peca | None:
-	escada_def = rolar_tabela(TABELAS_GEOMETRIA["escadas"], 20)
+	escada_def = rolar_tabela(TABELAS_GEOMETRIA["escadas"], 20, rng)
 	celulas, ponta, _ = avancar_corredor_linha(entrada_x, entrada_y, saida_origem.direcao, 2, 1, ocupadas)
 	if not celulas or ponta is None:
 		return None
@@ -729,16 +760,16 @@ def construir_escada_conectada(
 
 	if escada_def["destino"] in ("camara", "passagem"):
 		saidas.append(
-			criar_saida_em_borda(nova_id, saidas, ponta[0], ponta[1], saida_origem.direcao, "corredor")
+			criar_saida_em_borda(nova_id, saidas, ponta[0], ponta[1], saida_origem.direcao, "corredor", rng)
 		)
 
 	povoamento = Povoamento(
 		proposito=f"Escadaria / Acesso Vertical: {escada_def['descricao']}",
 		categoria_2024="Escadas",
-		estado_atual=rolar_tabela(TABELAS_PROPOSITO["estado_atual_camara"], 20)["descricao"],
+		estado_atual=rolar_tabela(TABELAS_PROPOSITO["estado_atual_camara"], 20, rng)["descricao"],
 		conteudo="Passagem vertical entre níveis",
-		barulho=rolar_tabela(TABELAS_AMBIENTACAO["barulhos"], 100)["descricao"],
-		odor=rolar_tabela(TABELAS_AMBIENTACAO["odores"], 100)["descricao"],
+		barulho=rolar_tabela(TABELAS_AMBIENTACAO["barulhos"], 100, rng)["descricao"],
+		odor=rolar_tabela(TABELAS_AMBIENTACAO["odores"], 100, rng)["descricao"],
 		mobilia="Degraus gastos pelo tempo",
 		notas=notas_existentes,
 	)
@@ -788,6 +819,9 @@ def expandir_saida(masmorra: Masmorra, peca_id: str, saida_id: str) -> tuple[Mas
 	if saida_origem is None or not saida_origem.aberta:
 		return masmorra, None
 
+	seed_efetiva = obter_seed_efetiva(masmorra)
+	rng = criar_rng(seed_efetiva, f"expandir:{peca_id}:{saida_id}")
+
 	dx, dy = VETORES_DIRECAO[saida_origem.direcao]
 	entrada_x = saida_origem.x + dx
 	entrada_y = saida_origem.y + dy
@@ -804,12 +838,12 @@ def expandir_saida(masmorra: Masmorra, peca_id: str, saida_id: str) -> tuple[Mas
 
 	nova_peca: Peca | None = None
 	if saida_origem.tipo_porta != "corredor":
-		atras = rolar_tabela(TABELAS_GEOMETRIA["atras_porta"], 20)
+		atras = rolar_tabela(TABELAS_GEOMETRIA["atras_porta"], 20, rng)
 		res = atras["resultado"]
 		if res == "camara":
-			nova_peca = construir_camara_conectada(masmorra, peca_origem, saida_origem, entrada_x, entrada_y, ocupadas)
+			nova_peca = construir_camara_conectada(masmorra, peca_origem, saida_origem, entrada_x, entrada_y, ocupadas, rng)
 		elif res == "escada":
-			nova_peca = construir_escada_conectada(masmorra, peca_origem, saida_origem, entrada_x, entrada_y, ocupadas)
+			nova_peca = construir_escada_conectada(masmorra, peca_origem, saida_origem, entrada_x, entrada_y, ocupadas, rng)
 		elif res == "porta_falsa_armadilha":
 			saida_origem.aberta = False
 			saida_origem.descricao_porta = f"{saida_origem.descricao_porta} (Porta falsa com armadilha)"
@@ -828,14 +862,15 @@ def expandir_saida(masmorra: Masmorra, peca_id: str, saida_id: str) -> tuple[Mas
 				entrada_x,
 				entrada_y,
 				ocupadas,
+				rng,
 				detalhe_forcado=detalhe,
 			)
 	else:
-		passagem_def = rolar_tabela(TABELAS_GEOMETRIA["passagem"], 20)
+		passagem_def = rolar_tabela(TABELAS_GEOMETRIA["passagem"], 20, rng)
 		if passagem_def["tipo"] == "camara":
-			nova_peca = construir_camara_conectada(masmorra, peca_origem, saida_origem, entrada_x, entrada_y, ocupadas)
+			nova_peca = construir_camara_conectada(masmorra, peca_origem, saida_origem, entrada_x, entrada_y, ocupadas, rng)
 		elif passagem_def["tipo"] == "escada":
-			nova_peca = construir_escada_conectada(masmorra, peca_origem, saida_origem, entrada_x, entrada_y, ocupadas)
+			nova_peca = construir_escada_conectada(masmorra, peca_origem, saida_origem, entrada_x, entrada_y, ocupadas, rng)
 		else:
 			nova_peca = construir_corredor_conectado(
 				masmorra,
@@ -844,6 +879,7 @@ def expandir_saida(masmorra: Masmorra, peca_id: str, saida_id: str) -> tuple[Mas
 				entrada_x,
 				entrada_y,
 				ocupadas,
+				rng,
 				detalhe_forcado=passagem_def,
 			)
 
@@ -881,13 +917,17 @@ def rerolar_peca(masmorra: Masmorra, peca_id: str, escopo: str = "tudo") -> Masm
 	if peca is None:
 		return masmorra
 
+	seed_efetiva = obter_seed_efetiva(masmorra)
+	masmorra.passo_rng += 1
+	rng = criar_rng(seed_efetiva, f"rerolar:{peca_id}:{escopo}:{masmorra.passo_rng}")
+
 	notas_atuais = peca.povoamento.notas
 	if escopo == "povoamento":
-		peca.povoamento = povoar_peca(masmorra.tipo_masmorra, peca.tipo, notas_existentes=notas_atuais)
+		peca.povoamento = povoar_peca(masmorra.tipo_masmorra, peca.tipo, rng, notas_existentes=notas_atuais)
 		return masmorra
 
 	if len(masmorra.pecas) == 1 and masmorra.pecas[0].id == peca_id:
-		nova = construir_area_inicial(peca.id, masmorra.tipo_masmorra)
+		nova = construir_area_inicial(peca.id, masmorra.tipo_masmorra, rng)
 		if escopo == "geometria":
 			nova.povoamento = peca.povoamento
 		else:
@@ -898,7 +938,7 @@ def rerolar_peca(masmorra: Masmorra, peca_id: str, escopo: str = "tudo") -> Masm
 	entrada_conectada = next((s for s in peca.saidas if s.conectada_a), None)
 	if entrada_conectada is None or entrada_conectada.conectada_a is None:
 		if escopo == "tudo":
-			peca.povoamento = povoar_peca(masmorra.tipo_masmorra, peca.tipo, notas_existentes=notas_atuais)
+			peca.povoamento = povoar_peca(masmorra.tipo_masmorra, peca.tipo, rng, notas_existentes=notas_atuais)
 		return masmorra
 
 	peca_pai = obter_peca(masmorra, entrada_conectada.conectada_a)
@@ -930,6 +970,7 @@ def rerolar_peca(masmorra: Masmorra, peca_id: str, escopo: str = "tudo") -> Masm
 			entrada_x,
 			entrada_y,
 			ocupadas,
+			rng,
 			peca_id_forcado=peca.id,
 			notas_existentes=notas_atuais,
 		)
@@ -941,6 +982,7 @@ def rerolar_peca(masmorra: Masmorra, peca_id: str, escopo: str = "tudo") -> Masm
 			entrada_x,
 			entrada_y,
 			ocupadas,
+			rng,
 			peca_id_forcado=peca.id,
 			notas_existentes=notas_atuais,
 		)
@@ -952,6 +994,7 @@ def rerolar_peca(masmorra: Masmorra, peca_id: str, escopo: str = "tudo") -> Masm
 			entrada_x,
 			entrada_y,
 			ocupadas,
+			rng,
 			peca_id_forcado=peca.id,
 			notas_existentes=notas_atuais,
 		)
@@ -966,6 +1009,10 @@ def rerolar_peca(masmorra: Masmorra, peca_id: str, escopo: str = "tudo") -> Masm
 
 
 def gerar_masmorra_completa(masmorra: Masmorra, total_salas: int = 10) -> Masmorra:
+	seed_efetiva = obter_seed_efetiva(masmorra)
+	masmorra.passo_rng += 1
+	rng_escolha = criar_rng(seed_efetiva, f"completa:{total_salas}:{masmorra.passo_rng}")
+
 	iteracoes = 0
 	limite_iteracoes = total_salas * 12
 
@@ -983,7 +1030,7 @@ def gerar_masmorra_completa(masmorra: Masmorra, total_salas: int = 10) -> Masmor
 		if not saidas_abertas:
 			break
 
-		peca_id, saida_id = random.choice(saidas_abertas)
+		peca_id, saida_id = rng_escolha.choice(saidas_abertas)
 		expandir_saida(masmorra, peca_id, saida_id)
 		iteracoes += 1
 

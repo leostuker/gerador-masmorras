@@ -21,6 +21,10 @@
 				<span>Tipo</span>
 				<select id="select-tipo-masmorra" aria-label="Tipo de masmorra"></select>
 			</label>
+			<label class="campo-inline">
+				<span>Seed</span>
+				<input id="input-seed" type="text" placeholder="Aleatória" aria-label="Seed da masmorra">
+			</label>
 			<button id="btn-nova" class="btn-primario" type="button" aria-label="Gerar nova masmorra">Nova</button>
 			<div class="grupo-inline">
 				<input id="input-total-salas" type="number" min="2" max="50" value="10" aria-label="Quantidade de salas">
@@ -78,6 +82,10 @@
 					<input id="input-nome-masmorra" type="text" placeholder="Nome da masmorra">
 				</label>
 				<div class="meta-bloco">
+					<div class="linha-seed">
+						<span><strong>Seed:</strong> <code id="texto-seed">-</code></span>
+						<button id="btn-copiar-seed" class="btn-sub" type="button" aria-label="Copiar seed">Copiar</button>
+					</div>
 					<p><strong>Peculiaridade:</strong> <span id="texto-peculiaridade">-</span></p>
 					<p><strong>Conservação:</strong> <span id="texto-conservacao">-</span></p>
 					<p><strong>Peças geradas:</strong> <span id="texto-contagem">-</span></p>

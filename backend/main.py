@@ -88,6 +88,7 @@ def listar_masmorras() -> list[dict]:
 			"id": dados.id,
 			"nome": dados.nome,
 			"tipo_masmorra": dados.tipo_masmorra,
+			"seed": dados.seed,
 			"qtd_pecas": len(dados.pecas),
 		})
 	return itens
@@ -95,7 +96,7 @@ def listar_masmorras() -> list[dict]:
 
 @app.post("/api/masmorras/nova")
 def criar_nova_masmorra(req: NovaMasmorraRequest) -> Masmorra:
-	masmorra = criar_masmorra(req.nome, req.tipo_masmorra)
+	masmorra = criar_masmorra(req.nome, req.tipo_masmorra, req.seed)
 	salvar_masmorra_disco(masmorra)
 	return masmorra
 

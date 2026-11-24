@@ -56,6 +56,8 @@ class Masmorra(BaseModel):
 	id: str
 	nome: str
 	tipo_masmorra: str
+	seed: str = ""
+	passo_rng: int = 0
 	peculiaridade: str
 	estado_conservacao: str
 	pecas: list[Peca] = Field(default_factory=list)
@@ -64,6 +66,7 @@ class Masmorra(BaseModel):
 class NovaMasmorraRequest(BaseModel):
 	nome: str = "Nova Masmorra"
 	tipo_masmorra: str = "geral"
+	seed: str | None = None
 
 
 class ExpandirSaidaRequest(BaseModel):

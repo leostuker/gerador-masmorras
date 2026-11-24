@@ -54,3 +54,23 @@ def test_fluxo_completo_masmorra_e_exportacao_pdf():
 	finally:
 		res_del = client.delete(f"/api/masmorras/{masmorra_id}")
 		assert res_del.status_code == 200
+
+
+def test_criar_masmorra_com_seed_reprodutivel():
+	payload = {"nome": "Seed API", "tipo_masmorra": "tumba", "seed": "TUMBA-99"}
+	res1 = client.post("/api/masmorras/nova", json=payload)
+	res2 = client.post("/api/masmorras/nova", json=payload)
+	assert res1.status_code == 200
+	assert res2.status_code == 200
+
+	d1 = res1.json()
+	d2 = res2.json()
+	try:
+		assert d1["seed"] == "TUMBA-99"
+		assert d2["seed"] == "TUMBA-99"
+		assert d1["peculiaridade"] == d2["peculiaridade"]
+		assert d1["estado_conservacao"] == d2["estado_conservacao"]
+		assert d1["pecas"][0] == d2["pecas"][0]
+	finally:
+		client.delete(f"/api/masmorras/{d1['id']}")
+		client.delete(f"/api/masmorras/{d2['id']}")

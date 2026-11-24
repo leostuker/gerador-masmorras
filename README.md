@@ -5,6 +5,7 @@ Gerador procedural de masmorras para D&D baseado nas tabelas do **Apêndice A** 
 ## Funcionalidades
 
 - **Geração sala por sala (padrão):** comece na Área Inicial e clique nas saídas douradas para sortear e encaixar a próxima sala, corredor ou escada sem sobreposição.
+- **Sistema de Seed:** informe uma seed personalizada (texto ou número) para recriar exatamente a mesma masmorra, ou deixe em branco para gerar um código automático exibido no painel lateral e no PDF.
 - **Geração completa:** preencha a masmorra inteira de uma vez escolhendo a quantidade de salas.
 - **Povoamento completo:** propósito, categoria (2024), estado de conservação, monstros e motivações, perigos, obstáculos, armadilhas, arapucas, tesouros, barulhos, odores e mobílias.
 - **Re-rolagem rápida:** re-role o povoamento, a geometria ou ambos de qualquer peça selecionada.
